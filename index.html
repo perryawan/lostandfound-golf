@@ -449,23 +449,35 @@ textarea { resize: vertical; }
 
 <!-- CLAIM MODAL -->
 <div class="modal-bg" id="claimModal">
-  <div class="modal">
+  <div class="modal" style="max-width:600px">
     <div class="modal-header">
       <span class="modal-title"><i class="ti ti-circle-check" style="color:var(--blue-tx)"></i> Tandai sebagai Claimed</span>
       <button class="btn btn-icon" onclick="closeModal('claimModal')"><i class="ti ti-x"></i></button>
     </div>
     <div class="form-grid">
-      <div class="form-group full">
+      <div class="form-group">
         <label>Tanggal pengambilan <span class="req">*</span></label>
         <input type="date" id="claimDate" />
       </div>
-      <div class="form-group full">
+      <div class="form-group">
         <label>Nama penerima (opsional)</label>
         <input type="text" id="claimName" placeholder="Nama pemilik barang..." />
       </div>
       <div class="form-group full">
         <label>Remark (opsional)</label>
-        <textarea id="claimRemark" rows="2" placeholder="Contoh: diambil dengan menunjukkan KTP..."></textarea>
+        <textarea id="claimRemark" rows="2" placeholder="Contoh: diambil dengan menunjukkan KTP, tanda tangan penerima..."></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Foto bukti pengambilan <span style="color:var(--text3);font-weight:400">(KTP, tanda tangan, serah terima)</span></label>
+        <div class="photo-upload" onclick="document.getElementById('claimPhotoInput').click()" id="claimPhotoZone">
+          <i class="ti ti-camera-plus" style="font-size:22px;display:block;margin-bottom:5px"></i>
+          Klik untuk upload foto bukti
+          <input type="file" id="claimPhotoInput" accept="image/*" style="display:none" onchange="previewClaimPhoto(event)" />
+        </div>
+        <div id="claimPhotoPreviewWrap" style="display:none;margin-top:10px;position:relative;display:none">
+          <img id="claimPhotoPreview" style="width:100%;max-height:200px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2)" />
+          <button onclick="removeClaimPhoto()" style="position:absolute;top:6px;right:6px;background:var(--red-tx);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">×</button>
+        </div>
       </div>
     </div>
     <div class="action-row">
@@ -507,9 +519,8 @@ textarea { resize: vertical; }
 // ══════════════════════════════════════════════
 //  CONFIGURATION — ganti dengan nilai dari Supabase Anda
 // ══════════════════════════════════════════════
-const SUPABASE_URL  = 'https://pflahcpizoqljoltmczg.supabase.co';  
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmbGFoY3Bpem9xbGpvbHRtY3pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NzAyMjYsImV4cCI6MjA5NzI0NjIyNn0.CyKFxVF76Q6IwGd2zU201Peutvv0JoPZGJcs2tFEX-E'; 
-
+const SUPABASE_URL  = 'https://pflahcpizoqljoltmczg.supabase.co';   
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmbGFoY3Bpem9xbGpvbHRtY3pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NzAyMjYsImV4cCI6MjA5NzI0NjIyNn0.CyKFxVF76Q6IwGd2zU201Peutvv0JoPZGJcs2tFEX-E';  
 // ══════════════════════════════════════════════
 //  Supabase client
 // ══════════════════════════════════════════════
@@ -591,6 +602,7 @@ function mapItem(r) {
     claimDate:        r.claim_date,
     claimName:        r.claim_name,
     claimRemark:      r.claim_remark,
+    claimPhotoUrl:    r.claim_photo_url,
     expireDate:       r.expire_date,
     returnedToFinder: r.returned_to_finder,
     expireRemark:     r.expire_remark,
@@ -842,6 +854,7 @@ function showDetail(id) {
   const i = cachedItems.find(x=>x.id===id); if (!i) return;
   document.getElementById('detailTitle').textContent = i.itemType;
   const row = (l,v,full=false) => `<div class="detail-item"${full?' style="grid-column:1/-1"':''}><label>${l}</label><div class="val">${v||'—'}</div></div>`;
+
   let html = `<div class="detail-grid">
     ${row('Tanggal ditemukan', fmt(i.date))}
     ${row('Status', statusBadge(i.status))}
@@ -854,10 +867,58 @@ function showDetail(id) {
     ${i.remark ? row('Remark', i.remark, true) : ''}
     ${row('Tanggal kedaluwarsa', fmt(i.expiryDate))}
   `;
-  if (i.status==='Claimed') html += row('Tgl diambil',fmt(i.claimDate))+row('Nama penerima',i.claimName)+row('Remark claim',i.claimRemark,true);
-  if (i.status==='Expired') html += row('Tgl expired',fmt(i.expireDate||i.expiryDate))+row('Dikembalikan ke penemu',i.returnedToFinder?'Ya':'Tidak')+row('Remark expired',i.expireRemark,true);
+  if (i.status==='Claimed') html += row('Tgl diambil',fmt(i.claimDate))+row('Nama penerima',i.claimName||'—')+row('Remark claim',i.claimRemark||'—',true);
+  if (i.status==='Expired') html += row('Tgl expired',fmt(i.expireDate||i.expiryDate))+row('Dikembalikan ke penemu',i.returnedToFinder?'Ya':'Tidak')+row('Remark expired',i.expireRemark||'—',true);
   html += '</div>';
-  if (i.photoUrl) html += `<div style="margin-top:14px"><img src="${i.photoUrl}" style="max-width:200px;border-radius:var(--radius);border:1px solid var(--border)" /></div>`;
+
+  // ── Foto barang ──
+  if (i.photoUrl) {
+    html += `
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+          <i class="ti ti-photo"></i> Foto Barang
+        </div>
+        <img src="${i.photoUrl}" 
+          onclick="window.open('${i.photoUrl}','_blank')"
+          title="Klik untuk lihat ukuran penuh"
+          style="max-width:100%;max-height:260px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:zoom-in;display:block" />
+        <div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="ti ti-zoom-in" style="font-size:11px"></i> Klik foto untuk lihat ukuran penuh</div>
+      </div>`;
+  } else {
+    html += `
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+          <i class="ti ti-photo"></i> Foto Barang
+        </div>
+        <div style="padding:16px;background:var(--surface2);border-radius:var(--radius);border:1px dashed var(--border2);text-align:center;color:var(--text3);font-size:12px">
+          <i class="ti ti-photo-off" style="font-size:24px;display:block;margin-bottom:4px;opacity:.4"></i>Tidak ada foto
+        </div>
+      </div>`;
+  }
+
+  // ── Foto bukti klaim (hanya tampil jika status Claimed) ──
+  if (i.status === 'Claimed') {
+    html += `
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+          <i class="ti ti-id"></i> Bukti Pengambilan
+        </div>`;
+    if (i.claimPhotoUrl) {
+      html += `
+        <img src="${i.claimPhotoUrl}" 
+          onclick="window.open('${i.claimPhotoUrl}','_blank')"
+          title="Klik untuk lihat ukuran penuh"
+          style="max-width:100%;max-height:260px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:zoom-in;display:block" />
+        <div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="ti ti-zoom-in" style="font-size:11px"></i> Klik foto untuk lihat ukuran penuh</div>`;
+    } else {
+      html += `
+        <div style="padding:16px;background:var(--surface2);border-radius:var(--radius);border:1px dashed var(--border2);text-align:center;color:var(--text3);font-size:12px">
+          <i class="ti ti-photo-off" style="font-size:24px;display:block;margin-bottom:4px;opacity:.4"></i>Tidak ada foto bukti pengambilan
+        </div>`;
+    }
+    html += `</div>`;
+  }
+
   document.getElementById('detailContent').innerHTML = html;
 
   let acts = `<button class="btn" onclick="closeModal('detailModal')">Tutup</button>`;
@@ -873,11 +934,32 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 // ══════════════════════════════════════════════
 //  Claim
 // ══════════════════════════════════════════════
+function previewClaimPhoto(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const wrap = document.getElementById('claimPhotoPreviewWrap');
+    const img  = document.getElementById('claimPhotoPreview');
+    img.src = ev.target.result;
+    wrap.style.display = 'block';
+    document.getElementById('claimPhotoZone').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeClaimPhoto() {
+  document.getElementById('claimPhotoInput').value = '';
+  document.getElementById('claimPhotoPreview').src = '';
+  document.getElementById('claimPhotoPreviewWrap').style.display = 'none';
+  document.getElementById('claimPhotoZone').style.display = 'block';
+}
+
 function openClaim(id) {
   actionItemId = id;
   document.getElementById('claimDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('claimName').value = '';
   document.getElementById('claimRemark').value = '';
+  removeClaimPhoto();
   document.getElementById('claimModal').classList.add('open');
 }
 
@@ -885,12 +967,28 @@ async function confirmClaim() {
   const d = document.getElementById('claimDate').value;
   if (!d) { toast('Pilih tanggal pengambilan','error'); return; }
   showLoading(true);
-  const { error } = await db.from('lost_found_items').update({
-    status: 'Claimed',
-    claim_date:   d,
-    claim_name:   document.getElementById('claimName').value,
-    claim_remark: document.getElementById('claimRemark').value,
-  }).eq('id', actionItemId);
+
+  // Upload foto bukti jika ada
+  let claimPhotoUrl = null;
+  const claimFile = document.getElementById('claimPhotoInput').files[0];
+  if (claimFile) {
+    const fname = `claim_${actionItemId}_${Date.now()}_${claimFile.name.replace(/\s/g,'_')}`;
+    const { error: upErr } = await db.storage.from('lost-found-photos').upload(fname, claimFile);
+    if (!upErr) {
+      const { data: urlData } = db.storage.from('lost-found-photos').getPublicUrl(fname);
+      claimPhotoUrl = urlData.publicUrl;
+    }
+  }
+
+  const updateData = {
+    status:           'Claimed',
+    claim_date:       d,
+    claim_name:       document.getElementById('claimName').value,
+    claim_remark:     document.getElementById('claimRemark').value,
+  };
+  if (claimPhotoUrl) updateData.claim_photo_url = claimPhotoUrl;
+
+  const { error } = await db.from('lost_found_items').update(updateData).eq('id', actionItemId);
   showLoading(false);
   if (error) { toast('Gagal update: '+error.message,'error'); return; }
   closeModal('claimModal');
