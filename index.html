@@ -1,210 +1,318 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>Lost & Found — Golf Club</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
 <style>
-/* ── Reset & Base ── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --bg:        #f4f5f7;
-  --surface:   #ffffff;
-  --surface2:  #f8f9fa;
-  --border:    #e2e5ea;
-  --border2:   #cbd0d8;
-  --text:      #1a1d23;
-  --text2:     #5a6070;
-  --text3:     #9aa0ad;
-  --green:     #1D9E75;
-  --green-dk:  #0F6E56;
-  --green-lt:  #E1F5EE;
-  --green-tx:  #0F6E56;
-  --blue-lt:   #E6F1FB;
-  --blue-tx:   #185FA5;
-  --amber-lt:  #FAEEDA;
-  --amber-tx:  #854F0B;
-  --red-lt:    #FCEBEB;
-  --red-tx:    #A32D2D;
-  --radius:    8px;
-  --radius-lg: 12px;
-  --shadow:    0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f5f7;--surface:#fff;--surface2:#f8f9fa;
+  --border:#e2e5ea;--border2:#cbd0d8;
+  --text:#1a1d23;--text2:#5a6070;--text3:#9aa0ad;
+  --green:#1D9E75;--green-dk:#0F6E56;--green-lt:#E1F5EE;--green-tx:#0F6E56;
+  --blue-lt:#E6F1FB;--blue-tx:#185FA5;
+  --amber-lt:#FAEEDA;--amber-tx:#854F0B;
+  --red-lt:#FCEBEB;--red-tx:#A32D2D;
+  --radius:8px;--radius-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --sidebar-w:210px;
 }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
 
-/* ── Layout ── */
-.app     { display: flex; height: 100vh; overflow: hidden; }
-.sidebar { width: 210px; min-width: 210px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
-.main    { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
-.topbar  { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-.topbar-title { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-.content { padding: 20px 24px; flex: 1; }
+/* ── APP SHELL ── */
+.app{display:flex;height:100vh;overflow:hidden;position:relative}
 
-/* ── Sidebar ── */
-.sidebar-header { padding: 18px 16px 14px; border-bottom: 1px solid var(--border); }
-.sidebar-logo   { font-size: 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 7px; }
-.sidebar-logo i { color: var(--green); font-size: 18px; }
-.sidebar-sub    { font-size: 11px; color: var(--text3); margin-top: 2px; }
-.nav-section    { padding: 14px 16px 4px; font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
-.nav-item       { display: flex; align-items: center; gap: 9px; padding: 9px 16px; cursor: pointer; font-size: 13px; color: var(--text2); border-left: 2px solid transparent; transition: all .13s; }
-.nav-item:hover { background: var(--bg); color: var(--text); }
-.nav-item.active { background: var(--green-lt); color: var(--green-dk); border-left-color: var(--green); font-weight: 600; }
-.nav-item i     { font-size: 16px; flex-shrink: 0; }
-.nav-badge      { margin-left: auto; background: var(--red-lt); color: var(--red-tx); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 20px; }
-
-/* ── Pages ── */
-.page { display: none; }
-.page.active { display: block; }
-
-/* ── Stats ── */
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
-.stat-card { background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border); padding: 14px 16px; }
-.stat-label { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
-.stat-value { font-size: 26px; font-weight: 700; }
-.c-green { color: var(--green); }
-.c-blue  { color: var(--blue-tx); }
-.c-amber { color: var(--amber-tx); }
-.c-red   { color: var(--red-tx); }
-.c-gray  { color: var(--text2); }
-
-/* ── Cards ── */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
-.card-title { font-size: 13px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 7px; color: var(--text2); }
-
-/* ── Table ── */
-.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); margin-bottom: 14px; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th    { text-align: left; padding: 9px 12px; font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
-td    { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-tr:last-child td { border-bottom: none; }
-tbody tr:hover td { background: var(--bg); cursor: pointer; }
-
-/* ── Badges ── */
-.badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-.badge-ongoing { background: var(--green-lt);  color: var(--green-tx); }
-.badge-claimed  { background: var(--blue-lt);  color: var(--blue-tx); }
-.badge-expired  { background: var(--red-lt);   color: var(--red-tx); }
-.badge-warning  { background: var(--amber-lt); color: var(--amber-tx); }
-.badge-neutral  { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
-
-/* ── Buttons ── */
-.btn { padding: 7px 14px; border-radius: var(--radius); border: 1px solid var(--border2); background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; }
-.btn:hover     { background: var(--bg); border-color: var(--border2); }
-.btn-primary   { background: var(--green); border-color: var(--green); color: #fff; }
-.btn-primary:hover { background: var(--green-dk); }
-.btn-danger    { background: var(--red-lt); border-color: #F09595; color: var(--red-tx); }
-.btn-danger:hover  { background: #F7C1C1; }
-.btn-sm        { padding: 4px 9px; font-size: 12px; }
-.btn-icon      { padding: 5px 7px; }
-
-/* ── Forms ── */
-.form-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.form-group  { display: flex; flex-direction: column; gap: 5px; }
-.form-group.full { grid-column: 1 / -1; }
-label        { font-size: 12px; font-weight: 600; color: var(--text2); }
-label .req   { color: var(--red-tx); }
-input, select, textarea {
-  width: 100%; padding: 8px 11px; border: 1px solid var(--border2);
-  border-radius: var(--radius); background: var(--surface); color: var(--text);
-  font-size: 13px; font-family: inherit; transition: border-color .12s;
+/* ── SIDEBAR ── */
+.sidebar{
+  width:var(--sidebar-w);min-width:var(--sidebar-w);
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow-y:auto;
+  transition:transform .25s ease;z-index:100;flex-shrink:0;
 }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(29,158,117,.12); }
-textarea { resize: vertical; }
+.sidebar-header{padding:16px 16px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sidebar-logo{font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:7px}
+.sidebar-logo i{color:var(--green);font-size:18px}
+.sidebar-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.nav-section{padding:12px 16px 4px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 16px;cursor:pointer;font-size:13px;color:var(--text2);border-left:2px solid transparent;transition:all .13s;white-space:nowrap}
+.nav-item:hover{background:var(--bg);color:var(--text)}
+.nav-item.active{background:var(--green-lt);color:var(--green-dk);border-left-color:var(--green);font-weight:600}
+.nav-item i{font-size:16px;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--red-lt);color:var(--red-tx);font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.conn-badge{font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:var(--surface2);color:var(--text3)}
 
-/* ── Search bar ── */
-.filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
-.filter-bar input, .filter-bar select { flex: 1; min-width: 130px; max-width: 200px; }
+/* ── MOBILE SIDEBAR OVERLAY ── */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99}
+.sidebar-overlay.show{display:block}
 
-/* ── Modal ── */
-.modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
-.modal-bg.open { display: flex; }
-.modal { background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border); width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; padding: 22px 24px; box-shadow: 0 8px 30px rgba(0,0,0,.18); }
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
-.modal-title  { font-size: 16px; font-weight: 700; }
-.action-row   { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+/* ── MAIN ── */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:10px}
+.topbar-left{display:flex;align-items:center;gap:10px;min-width:0}
+.topbar-title{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.menu-btn{display:none;background:none;border:none;cursor:pointer;padding:6px;color:var(--text2);font-size:20px}
+
+/* ── CONTENT ── */
+.content{padding:16px 20px;flex:1}
+
+/* ── PAGES ── */
+.page{display:none}
+.page.active{display:block}
+
+/* ── STATS ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+.stat-card{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);padding:13px 15px}
+.stat-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.stat-value{font-size:24px;font-weight:700}
+.c-green{color:var(--green)}.c-blue{color:var(--blue-tx)}.c-amber{color:var(--amber-tx)}.c-red{color:var(--red-tx)}.c-gray{color:var(--text2)}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:7px;color:var(--text2)}
+
+/* ── TABLE (desktop) ── */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow);margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 12px;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg);cursor:pointer}
+
+/* ── CARD LIST (mobile items) ── */
+.item-card-list{display:none;flex-direction:column;gap:10px}
+.item-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;box-shadow:var(--shadow)}
+.item-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+.item-card-name{font-weight:600;font-size:14px}
+.item-card-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.item-card-body{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;margin-bottom:10px}
+.item-card-field label{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase}
+.item-card-field .v{color:var(--text);font-weight:500}
+.item-card-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-ongoing{background:var(--green-lt);color:var(--green-tx)}
+.badge-claimed{background:var(--blue-lt);color:var(--blue-tx)}
+.badge-expired{background:var(--red-lt);color:var(--red-tx)}
+.badge-warning{background:var(--amber-lt);color:var(--amber-tx)}
+.badge-neutral{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+
+/* ── BUTTONS ── */
+.btn{padding:8px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px;transition:all .12s;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.btn:hover{background:var(--bg)}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--green);border-color:var(--green);color:#fff}
+.btn-primary:hover{background:var(--green-dk)}
+.btn-danger{background:var(--red-lt);border-color:#F09595;color:var(--red-tx)}
+.btn-danger:hover{background:#F7C1C1}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-icon{padding:6px 8px}
+.btn-block{width:100%;justify-content:center}
+
+/* ── FORMS ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+label{font-size:12px;font-weight:600;color:var(--text2)}
+label .req{color:var(--red-tx)}
+input,select,textarea{
+  width:100%;padding:9px 11px;border:1px solid var(--border2);
+  border-radius:var(--radius);background:var(--surface);color:var(--text);
+  font-size:14px;font-family:inherit;transition:border-color .12s;
+  -webkit-appearance:none;appearance:none
+}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239aa0ad' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,.12)}
+textarea{resize:vertical}
+
+/* ── Custom item type input ── */
+.custom-type-row{display:flex;gap:8px;align-items:stretch}
+.custom-type-row input{flex:1}
+.custom-type-row button{flex-shrink:0;white-space:nowrap}
+
+/* ── Filter bar ── */
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.filter-bar input,.filter-bar select{flex:1;min-width:130px;max-width:200px}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);width:100%;max-width:580px;padding:20px 22px;box-shadow:0 8px 30px rgba(0,0,0,.2);margin:auto;position:relative}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px}
+.modal-title{font-size:15px;font-weight:700;flex:1;min-width:0}
+.action-row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap}
 
 /* ── Photo upload ── */
-.photo-upload { border: 2px dashed var(--border2); border-radius: var(--radius); padding: 18px; text-align: center; cursor: pointer; color: var(--text3); font-size: 13px; transition: border-color .12s; }
-.photo-upload:hover { border-color: var(--green); color: var(--green); }
-#photoPreviewImg { display: none; width: 90px; height: 90px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--border); margin-top: 10px; }
+.photo-upload{border:2px dashed var(--border2);border-radius:var(--radius);padding:16px;text-align:center;cursor:pointer;color:var(--text3);font-size:13px;transition:border-color .12s}
+.photo-upload:hover{border-color:var(--green);color:var(--green)}
+.photo-preview-wrap{position:relative;margin-top:8px}
+.photo-preview-wrap img{width:100%;max-height:180px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);display:block}
+.photo-remove-btn{position:absolute;top:6px;right:6px;background:var(--red-tx);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;line-height:1}
+#photoPreviewImg{display:none;width:100px;height:100px;object-fit:cover;border-radius:var(--radius);border:1px solid var(--border);margin-top:8px}
 
-/* ── Expiry indicator ── */
-.expiry-preview { margin-top: 12px; padding: 10px 14px; background: var(--green-lt); border-radius: var(--radius); font-size: 12px; color: var(--green-tx); display: none; border: 1px solid #9FE1CB; }
+/* ── Expiry preview ── */
+.expiry-preview{margin-top:10px;padding:10px 14px;background:var(--green-lt);border-radius:var(--radius);font-size:12px;color:var(--green-tx);display:none;border:1px solid #9FE1CB}
 
 /* ── Loading ── */
-.loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,.7); z-index: 999; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
-.loading-overlay.show { display: flex; }
-.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(255,255,255,.75);z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+.loading-overlay.show{display:flex}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── Toast ── */
-.toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: #fff; padding: 12px 18px; border-radius: var(--radius-lg); font-size: 13px; font-weight: 500; z-index: 1000; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.25); transform: translateY(80px); opacity: 0; transition: all .25s; }
-.toast.show { transform: translateY(0); opacity: 1; }
-.toast.success { background: var(--green); }
-.toast.error   { background: var(--red-tx); }
+.toast{position:fixed;bottom:24px;right:16px;left:16px;max-width:380px;margin:0 auto;background:var(--text);color:#fff;padding:12px 16px;border-radius:var(--radius-lg);font-size:13px;font-weight:500;z-index:1000;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.25);transform:translateY(100px);opacity:0;transition:all .25s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:var(--green)}
+.toast.error{background:var(--red-tx)}
 
 /* ── Empty state ── */
-.empty-state { text-align: center; padding: 44px 20px; color: var(--text3); }
-.empty-state i { font-size: 40px; display: block; margin-bottom: 10px; opacity: .5; }
-.empty-state p { font-size: 13px; }
-
-/* ── Report summary ── */
-.report-filter-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; margin-bottom: 14px; }
-
-/* ── Connection badge ── */
-.conn-badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 600; }
+.empty-state{text-align:center;padding:40px 20px;color:var(--text3)}
+.empty-state i{font-size:36px;display:block;margin-bottom:8px;opacity:.5}
+.empty-state p{font-size:13px}
 
 /* ── Detail grid ── */
-.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.detail-item label { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
-.detail-item .val  { font-size: 13px; margin-top: 2px; font-weight: 500; }
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.detail-item label{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.detail-item .val{font-size:13px;margin-top:2px;font-weight:500;word-break:break-word}
 
-/* ── Responsive ── */
-@media (max-width: 720px) {
-  .sidebar { width: 52px; min-width: 52px; }
-  .nav-item span, .sidebar-sub, .sidebar-logo span, .nav-section, .nav-badge { display: none; }
-  .nav-item { justify-content: center; padding: 10px; }
-  .content { padding: 14px; }
-  .form-grid { grid-template-columns: 1fr; }
-  .form-group.full { grid-column: 1; }
+/* ── Report filter ── */
+.report-filter-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.report-btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+
+/* ── Section divider in detail modal ── */
+.detail-section{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.detail-section-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+
+/* ── Auth: role indicator + login btn ── */
+.role-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:3px 8px;border-radius:20px;font-weight:600;margin-bottom:6px;width:100%}
+.role-badge.admin{background:var(--amber-lt);color:var(--amber-tx)}
+.role-badge.public{background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+.btn-auth{width:100%;justify-content:center;font-size:12px;padding:7px;margin-top:4px}
+/* Hide admin-only nav items when public */
+body.is-public .nav-admin{display:none}
+/* Hide admin action buttons — tables, cards, detail modal */
+body.is-public .admin-action{display:none!important}
+/* Photo viewer */
+.photo-modal-inner{position:relative;display:flex;align-items:center;justify-content:center}
+
+/* ══════════════════════════════
+   RESPONSIVE BREAKPOINTS
+══════════════════════════════ */
+
+/* ── TABLET (768px) ── */
+@media(max-width:900px){
+  .topbar{padding:11px 16px}
+  .content{padding:14px 16px}
+  .form-grid{grid-template-columns:1fr 1fr}
+  .report-filter-row{grid-template-columns:1fr 1fr}
+  th,td{padding:8px 10px}
+}
+
+/* ── MOBILE (640px) ── */
+@media(max-width:640px){
+  :root{--sidebar-w:240px}
+  .menu-btn{display:flex;align-items:center;justify-content:center}
+
+  /* Sidebar becomes a drawer */
+  .sidebar{
+    position:fixed;top:0;left:0;height:100%;
+    transform:translateX(-100%);
+    box-shadow:4px 0 20px rgba(0,0,0,.15)
+  }
+  .sidebar.open{transform:translateX(0)}
+
+  .main{width:100%}
+  .topbar-title{font-size:14px}
+  .content{padding:12px}
+
+  /* Hide table, show card list on mobile */
+  .table-wrap{display:none}
+  .item-card-list{display:flex}
+
+  /* Form: single column */
+  .form-grid{grid-template-columns:1fr}
+  .form-group.full{grid-column:1}
+
+  /* Stats: 2 columns */
+  .stat-grid{grid-template-columns:1fr 1fr}
+  .stat-value{font-size:20px}
+
+  /* Filter bar: full width inputs */
+  .filter-bar input,.filter-bar select{max-width:100%;flex-basis:100%}
+
+  /* Modal: full screen bottom sheet */
+  .modal-bg{padding:0;align-items:flex-end}
+  .modal{border-radius:var(--radius-lg) var(--radius-lg) 0 0;max-height:92vh;overflow-y:auto}
+
+  /* Report */
+  .report-filter-row{grid-template-columns:1fr}
+  .report-btn-row .btn{flex:1;justify-content:center}
+
+  /* Action row stack on mobile */
+  .action-row{flex-direction:column-reverse}
+  .action-row .btn{width:100%;justify-content:center}
+
+  /* Detail grid: single column */
+  .detail-grid{grid-template-columns:1fr}
+  .detail-item[style*="grid-column"]{grid-column:1!important}
+
+  /* Topbar right area */
+  .topbar-actions .btn span{display:none}
+}
+
+/* ── SMALL MOBILE (360px) ── */
+@media(max-width:400px){
+  .stat-grid{grid-template-columns:1fr 1fr}
+  .stat-value{font-size:18px}
+  .stat-label{font-size:10px}
+  .badge{padding:2px 7px;font-size:10px}
 }
 </style>
 </head>
 <body>
 
-<!-- Loading overlay -->
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
   <span style="font-size:13px;color:var(--text2)">Memuat data...</span>
 </div>
-
-<!-- Toast -->
 <div class="toast" id="toast"></div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
 <div class="app">
   <!-- SIDEBAR -->
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-logo"><i class="ti ti-flag-2"></i><span>Lost & Found</span></div>
       <div class="sidebar-sub">Golf Club System</div>
     </div>
-    <div style="flex:1;padding:6px 0">
+    <div style="flex:1;padding:6px 0;overflow-y:auto">
       <div class="nav-section">Menu</div>
       <div class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard"><i class="ti ti-layout-dashboard"></i><span>Dashboard</span></div>
-      <div class="nav-item" onclick="nav('add')" id="nav-add"><i class="ti ti-plus"></i><span>Add New Item</span></div>
+      <div class="nav-item nav-admin" onclick="nav('add')" id="nav-add"><i class="ti ti-plus"></i><span>Add New Item</span></div>
       <div class="nav-section">Status</div>
-      <div class="nav-item" onclick="nav('ongoing')" id="nav-ongoing"><i class="ti ti-clock"></i><span>Ongoing</span><span class="nav-badge" id="badge-ongoing">0</span></div>
+      <div class="nav-item" onclick="nav('ongoing')" id="nav-ongoing"><i class="ti ti-clock"></i><span>Ongoing</span><span class="nav-badge" id="badge-ongoing" style="display:none">0</span></div>
       <div class="nav-item" onclick="nav('claimed')" id="nav-claimed"><i class="ti ti-circle-check"></i><span>Claimed</span></div>
       <div class="nav-item" onclick="nav('expired')" id="nav-expired"><i class="ti ti-alert-circle"></i><span>Expired</span></div>
       <div class="nav-section">Tools</div>
       <div class="nav-item" onclick="nav('search')" id="nav-search"><i class="ti ti-search"></i><span>Search & Filter</span></div>
       <div class="nav-item" onclick="nav('reports')" id="nav-reports"><i class="ti ti-chart-bar"></i><span>Reports</span></div>
+      <div class="nav-section">Pengaturan</div>
+      <div class="nav-item nav-admin" onclick="nav('settings')" id="nav-settings"><i class="ti ti-settings"></i><span>Kelola Kategori</span></div>
     </div>
-    <div style="padding:12px 16px;border-top:1px solid var(--border)">
-      <div id="connStatus" class="conn-badge" style="font-size:10px;background:var(--surface2);color:var(--text3)">● Connecting...</div>
+    <div class="sidebar-footer">
+      <div id="connStatus" class="conn-badge">● Connecting...</div>
+      <div id="roleBadge" class="role-badge public" style="margin-top:8px"><i class="ti ti-eye"></i> Mode: Publik</div>
+      <button id="authBtn" class="btn btn-auth" onclick="handleAuthBtn()">
+        <i class="ti ti-login"></i> Login Admin
+      </button>
     </div>
   </div>
 
@@ -214,24 +322,27 @@ textarea { resize: vertical; }
     <!-- DASHBOARD -->
     <div id="page-dashboard" class="page active">
       <div class="topbar">
-        <span class="topbar-title"><i class="ti ti-layout-dashboard"></i> Dashboard</span>
-        <span id="dashDate" style="font-size:12px;color:var(--text3)"></span>
+        <div class="topbar-left">
+          <button class="menu-btn" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
+          <span class="topbar-title"><i class="ti ti-layout-dashboard"></i> Dashboard</span>
+        </div>
+        <span id="dashDate" style="font-size:11px;color:var(--text3);display:none" class="d-sm-block"></span>
       </div>
       <div class="content">
-        <div class="stat-grid" id="dashStats">
+        <div class="stat-grid">
           <div class="stat-card"><div class="stat-label">Ongoing</div><div class="stat-value c-green" id="s-ongoing">—</div></div>
           <div class="stat-card"><div class="stat-label">Claimed</div><div class="stat-value c-blue" id="s-claimed">—</div></div>
           <div class="stat-card"><div class="stat-label">Expired</div><div class="stat-value c-red" id="s-expired">—</div></div>
-          <div class="stat-card"><div class="stat-label">Expiring ≤30 hari</div><div class="stat-value c-amber" id="s-expiring">—</div></div>
-          <div class="stat-card"><div class="stat-label">Total item</div><div class="stat-value c-gray" id="s-total">—</div></div>
+          <div class="stat-card"><div class="stat-label">Exp ≤30 hari</div><div class="stat-value c-amber" id="s-expiring">—</div></div>
+          <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value c-gray" id="s-total">—</div></div>
         </div>
         <div class="card">
           <div class="card-title"><i class="ti ti-alert-triangle" style="color:var(--amber-tx)"></i> Expiring dalam 30 hari</div>
-          <div id="expiringList"><div class="empty-state"><i class="ti ti-refresh" style="font-size:24px"></i><p>Memuat...</p></div></div>
+          <div id="expiringList"></div>
         </div>
         <div class="card">
-          <div class="card-title"><i class="ti ti-history"></i> Item terbaru</div>
-          <div id="recentList"><div class="empty-state"><i class="ti ti-refresh" style="font-size:24px"></i><p>Memuat...</p></div></div>
+          <div class="card-title"><i class="ti ti-history"></i> Item terbaru ditambahkan</div>
+          <div id="recentList"></div>
         </div>
       </div>
     </div>
@@ -239,18 +350,21 @@ textarea { resize: vertical; }
     <!-- ADD NEW -->
     <div id="page-add" class="page">
       <div class="topbar">
-        <span class="topbar-title"><i class="ti ti-plus"></i> Add New Item</span>
+        <div class="topbar-left">
+          <button class="menu-btn" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
+          <span class="topbar-title"><i class="ti ti-plus"></i> Add New Item</span>
+        </div>
       </div>
       <div class="content">
         <div class="card">
           <div class="form-grid">
             <div class="form-group">
               <label>Tanggal ditemukan <span class="req">*</span></label>
-              <input type="date" id="fDate" />
+              <input type="date" id="fDate"/>
             </div>
             <div class="form-group">
               <label>Nama penemu <span class="req">*</span></label>
-              <input type="text" id="fFinder" placeholder="Nama lengkap penemu..." />
+              <input type="text" id="fFinder" placeholder="Nama lengkap penemu..."/>
             </div>
             <div class="form-group">
               <label>Departemen <span class="req">*</span></label>
@@ -264,47 +378,58 @@ textarea { resize: vertical; }
             </div>
             <div class="form-group">
               <label>Lokasi ditemukan <span class="req">*</span></label>
-              <input type="text" id="fLocation" placeholder="Contoh: Fairway Hole 7, Locker Room A..." />
+              <input type="text" id="fLocation" placeholder="Contoh: Fairway Hole 7, Locker Room A..."/>
             </div>
             <div class="form-group">
               <label>Kategori <span class="req">*</span></label>
               <select id="fCategory" onchange="onCategoryChange()">
                 <option value="">— Pilih kategori —</option>
-                <option value="Pakaian">Pakaian (masa simpan 3 bulan)</option>
-                <option value="Alas Kaki">Alas Kaki (masa simpan 6 bulan)</option>
-                <option value="Elektronik & Berharga">Elektronik &amp; Berharga (masa simpan 1 tahun)</option>
+                <option value="Pakaian">Pakaian (3 bulan)</option>
+                <option value="Alas Kaki">Alas Kaki (6 bulan)</option>
+                <option value="Elektronik & Berharga">Elektronik &amp; Berharga (1 tahun)</option>
               </select>
             </div>
             <div class="form-group">
               <label>Jenis barang <span class="req">*</span></label>
-              <select id="fItemType">
+              <select id="fItemType" onchange="onItemTypeChange()">
                 <option value="">— Pilih kategori dulu —</option>
               </select>
+              <!-- Input custom jenis muncul jika pilih "Lainnya..." -->
+              <div id="customTypeWrap" style="display:none;margin-top:6px">
+                <div class="custom-type-row">
+                  <input type="text" id="fCustomType" placeholder="Ketik jenis barang baru..."/>
+                  <button class="btn btn-primary btn-sm" onclick="saveCustomType()"><i class="ti ti-plus"></i> Simpan</button>
+                </div>
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">Jenis baru akan otomatis disimpan ke kategori ini</div>
+              </div>
             </div>
             <div class="form-group full">
               <label>Deskripsi barang <span class="req">*</span></label>
               <textarea id="fDesc" rows="3" placeholder="Warna, merek, ukuran, ciri khusus, kondisi barang..."></textarea>
             </div>
-            <div class="form-group">
+            <div class="form-group full">
               <label>Foto barang</label>
-              <div class="photo-upload" onclick="document.getElementById('fPhoto').click()">
-                <i class="ti ti-camera-plus" style="font-size:22px;display:block;margin-bottom:5px"></i>
-                Klik untuk upload foto
-                <input type="file" id="fPhoto" accept="image/*" style="display:none" onchange="previewPhoto(event)" />
+              <div class="photo-upload" onclick="document.getElementById('fPhoto').click()" id="fPhotoZone">
+                <i class="ti ti-camera-plus" style="font-size:24px;display:block;margin-bottom:5px"></i>
+                Klik untuk upload foto barang
+                <input type="file" id="fPhoto" accept="image/*" style="display:none" onchange="previewPhoto(event)"/>
               </div>
-              <img id="photoPreviewImg" alt="Preview foto barang" />
+              <div id="fPhotoPreviewWrap" style="display:none" class="photo-preview-wrap">
+                <img id="fPhotoPreview" alt="Preview"/>
+                <button class="photo-remove-btn" onclick="removeItemPhoto()">×</button>
+              </div>
             </div>
-            <div class="form-group">
+            <div class="form-group full">
               <label>Remark (opsional)</label>
-              <textarea id="fRemark" rows="4" placeholder="Catatan tambahan, kondisi khusus, dsb..."></textarea>
+              <textarea id="fRemark" rows="2" placeholder="Catatan tambahan, kondisi khusus, dsb..."></textarea>
             </div>
           </div>
           <div class="expiry-preview" id="expiryPreview">
             <i class="ti ti-calendar-event"></i> Masa simpan: <strong id="expiryText"></strong>
           </div>
           <div class="action-row">
-            <button class="btn" onclick="clearForm()"><i class="ti ti-x"></i> Reset form</button>
-            <button class="btn btn-primary" onclick="saveItem()"><i class="ti ti-device-floppy"></i> Simpan barang</button>
+            <button class="btn" onclick="clearForm()"><i class="ti ti-x"></i> Reset</button>
+            <button class="btn btn-primary" onclick="saveItem()"><i class="ti ti-device-floppy"></i> Simpan Barang</button>
           </div>
         </div>
       </div>
@@ -313,52 +438,75 @@ textarea { resize: vertical; }
     <!-- ONGOING -->
     <div id="page-ongoing" class="page">
       <div class="topbar">
-        <span class="topbar-title"><i class="ti ti-clock"></i> Ongoing Items</span>
-        <button class="btn btn-primary btn-sm" onclick="nav('add')"><i class="ti ti-plus"></i> Add Item</button>
+        <div class="topbar-left">
+          <button class="menu-btn" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
+          <span class="topbar-title"><i class="ti ti-clock"></i> Ongoing</span>
+        </div>
+        <button class="btn btn-primary btn-sm admin-action" onclick="nav('add')"><i class="ti ti-plus"></i> <span>Add</span></button>
       </div>
       <div class="content">
         <div class="filter-bar">
-          <input type="text" id="ongoingKw" placeholder="Cari nama, lokasi, jenis..." oninput="renderOngoing()" />
+          <input type="text" id="ongoingKw" placeholder="Cari..." oninput="renderOngoing()"/>
           <select id="ongoingCat" onchange="renderOngoing()">
             <option value="">Semua kategori</option>
             <option>Pakaian</option><option>Alas Kaki</option><option>Elektronik & Berharga</option>
           </select>
           <select id="ongoingDept" onchange="renderOngoing()">
-            <option value="">Semua departemen</option>
+            <option value="">Semua dept</option>
             <option>Housekeeping</option><option>F&amp;B</option><option>Stater</option>
             <option>Proshop</option><option>Front Office (FO)</option><option>Marketing</option>
             <option>Security</option><option>Porter</option><option>Guest</option><option>DW</option><option>Other</option>
           </select>
         </div>
+        <!-- Desktop table -->
         <div class="table-wrap"><div id="ongoingTable"></div></div>
+        <!-- Mobile cards -->
+        <div class="item-card-list" id="ongoingCards"></div>
       </div>
     </div>
 
     <!-- CLAIMED -->
     <div id="page-claimed" class="page">
-      <div class="topbar"><span class="topbar-title"><i class="ti ti-circle-check"></i> Claimed Items</span></div>
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="menu-btn" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
+          <span class="topbar-title"><i class="ti ti-circle-check"></i> Claimed</span>
+        </div>
+      </div>
       <div class="content">
         <div class="table-wrap"><div id="claimedTable"></div></div>
+        <div class="item-card-list" id="claimedCards"></div>
       </div>
     </div>
 
     <!-- EXPIRED -->
     <div id="page-expired" class="page">
-      <div class="topbar"><span class="topbar-title"><i class="ti ti-alert-circle"></i> Expired Items</span></div>
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="menu-btn" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
+          <span class="topbar-title"><i class="ti ti-alert-circle"></i> Expired</span>
+        </div>
+      </div>
       <div class="content">
         <div class="table-wrap"><div id="expiredTable"></div></div>
+        <div class="item-card-list" id="expiredCards"></div>
       </div>
     </div>
 
     <!-- SEARCH -->
     <div id="page-search" class="page">
-      <div class="topbar"><span class="topbar-title"><i class="ti ti-search"></i> Search & Filter</span></div>
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="menu-btn" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
+          <span class="topbar-title"><i class="ti ti-search"></i> Search & Filter</span>
+        </div>
+      </div>
       <div class="content">
         <div class="card">
           <div class="form-grid">
             <div class="form-group full">
               <label>Kata kunci</label>
-              <input type="text" id="sKw" placeholder="Nama penemu, lokasi, jenis barang, deskripsi..." />
+              <input type="text" id="sKw" placeholder="Nama penemu, lokasi, jenis, deskripsi..."/>
             </div>
             <div class="form-group">
               <label>Status</label>
@@ -385,26 +533,20 @@ textarea { resize: vertical; }
             </div>
             <div class="form-group">
               <label>Jenis barang</label>
-              <select id="sType">
-                <option value="">Semua jenis</option>
-                <option>Baju</option><option>Topi</option><option>Celana</option><option>Ikat pinggang</option>
-                <option>Sarung tangan</option><option>Kaos kaki</option><option>Tas</option><option>Ransel</option>
-                <option>Kacamata</option><option>Sepatu</option><option>Sandal</option><option>Handphone</option>
-                <option>Range Finder</option><option>Perhiasan</option><option>Jam tangan</option><option>Vape / Rokok elektrik</option>
-              </select>
+              <select id="sType"><option value="">Semua jenis</option></select>
             </div>
             <div class="form-group">
               <label>Tanggal mulai</label>
-              <input type="date" id="sFrom" />
+              <input type="date" id="sFrom"/>
             </div>
             <div class="form-group">
               <label>Tanggal akhir</label>
-              <input type="date" id="sTo" />
+              <input type="date" id="sTo"/>
             </div>
           </div>
           <div class="action-row">
             <button class="btn" onclick="clearSearch()"><i class="ti ti-x"></i> Reset</button>
-            <button class="btn btn-primary" onclick="doSearch()"><i class="ti ti-search"></i> Cari sekarang</button>
+            <button class="btn btn-primary" onclick="doSearch()"><i class="ti ti-search"></i> Cari</button>
           </div>
         </div>
         <div id="searchResults"></div>
@@ -413,18 +555,23 @@ textarea { resize: vertical; }
 
     <!-- REPORTS -->
     <div id="page-reports" class="page">
-      <div class="topbar"><span class="topbar-title"><i class="ti ti-chart-bar"></i> Reports</span></div>
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="menu-btn" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
+          <span class="topbar-title"><i class="ti ti-chart-bar"></i> Reports</span>
+        </div>
+      </div>
       <div class="content">
         <div class="card">
           <div class="card-title"><i class="ti ti-calendar-stats"></i> Filter rentang tanggal</div>
           <div class="report-filter-row">
-            <div class="form-group"><label>Dari tanggal</label><input type="date" id="rFrom" /></div>
-            <div class="form-group"><label>Sampai tanggal</label><input type="date" id="rTo" /></div>
-            <div style="display:flex;gap:8px;padding-bottom:1px">
-              <button class="btn btn-primary" onclick="generateReport()"><i class="ti ti-table"></i> Tampilkan</button>
-              <button class="btn" onclick="exportExcel()"><i class="ti ti-file-spreadsheet"></i> Excel</button>
-              <button class="btn" onclick="exportPDF()"><i class="ti ti-printer"></i> PDF</button>
-            </div>
+            <div class="form-group"><label>Dari tanggal</label><input type="date" id="rFrom"/></div>
+            <div class="form-group"><label>Sampai tanggal</label><input type="date" id="rTo"/></div>
+          </div>
+          <div class="report-btn-row">
+            <button class="btn btn-primary" onclick="generateReport()"><i class="ti ti-table"></i> Tampilkan</button>
+            <button class="btn" onclick="exportExcel()"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+            <button class="btn" onclick="exportPDF()"><i class="ti ti-printer"></i> PDF</button>
           </div>
           <div class="stat-grid" id="reportStats" style="display:none;margin-bottom:0"></div>
         </div>
@@ -432,12 +579,48 @@ textarea { resize: vertical; }
       </div>
     </div>
 
+    <!-- SETTINGS / KELOLA KATEGORI -->
+    <div id="page-settings" class="page">
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="menu-btn" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
+          <span class="topbar-title"><i class="ti ti-settings"></i> Kelola Kategori & Jenis Barang</span>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:12px;color:var(--text2);padding:8px;background:var(--amber-lt);border-radius:var(--radius);border:1px solid #EDD59F">
+            <i class="ti ti-info-circle"></i> Perubahan di sini akan langsung mempengaruhi pilihan jenis barang saat input data baru. Jenis yang sudah ada di database tidak akan terhapus.
+          </div>
+        </div>
+        <div id="settingsCatList"></div>
+        <div class="card">
+          <div class="card-title"><i class="ti ti-folder-plus"></i> Tambah Kategori Baru</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nama kategori <span class="req">*</span></label>
+              <input type="text" id="newCatName" placeholder="Contoh: Dokumen & Kartu"/>
+            </div>
+            <div class="form-group">
+              <label>Masa simpan (bulan) <span class="req">*</span></label>
+              <input type="number" id="newCatMonths" placeholder="Contoh: 6" min="1" max="60"/>
+            </div>
+          </div>
+          <div class="action-row">
+            <button class="btn btn-primary" onclick="addNewCategory()"><i class="ti ti-plus"></i> Tambah Kategori</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /main -->
 </div><!-- /app -->
 
-<!-- DETAIL MODAL -->
+<!-- ══ MODALS ══ -->
+
+<!-- DETAIL -->
 <div class="modal-bg" id="detailModal">
-  <div class="modal">
+  <div class="modal" style="max-width:620px">
     <div class="modal-header">
       <span class="modal-title" id="detailTitle">Detail Barang</span>
       <button class="btn btn-icon" onclick="closeModal('detailModal')"><i class="ti ti-x"></i></button>
@@ -447,7 +630,7 @@ textarea { resize: vertical; }
   </div>
 </div>
 
-<!-- CLAIM MODAL -->
+<!-- CLAIM -->
 <div class="modal-bg" id="claimModal">
   <div class="modal" style="max-width:600px">
     <div class="modal-header">
@@ -457,26 +640,26 @@ textarea { resize: vertical; }
     <div class="form-grid">
       <div class="form-group">
         <label>Tanggal pengambilan <span class="req">*</span></label>
-        <input type="date" id="claimDate" />
+        <input type="date" id="claimDate"/>
       </div>
       <div class="form-group">
         <label>Nama penerima (opsional)</label>
-        <input type="text" id="claimName" placeholder="Nama pemilik barang..." />
+        <input type="text" id="claimName" placeholder="Nama pemilik barang..."/>
       </div>
       <div class="form-group full">
         <label>Remark (opsional)</label>
-        <textarea id="claimRemark" rows="2" placeholder="Contoh: diambil dengan menunjukkan KTP, tanda tangan penerima..."></textarea>
+        <textarea id="claimRemark" rows="2" placeholder="Contoh: diambil dengan KTP, tanda tangan penerima..."></textarea>
       </div>
       <div class="form-group full">
-        <label>Foto bukti pengambilan <span style="color:var(--text3);font-weight:400">(KTP, tanda tangan, serah terima)</span></label>
+        <label>Foto bukti pengambilan <span style="color:var(--text3);font-weight:400">(KTP, tanda tangan, form serah terima)</span></label>
         <div class="photo-upload" onclick="document.getElementById('claimPhotoInput').click()" id="claimPhotoZone">
           <i class="ti ti-camera-plus" style="font-size:22px;display:block;margin-bottom:5px"></i>
           Klik untuk upload foto bukti
-          <input type="file" id="claimPhotoInput" accept="image/*" style="display:none" onchange="previewClaimPhoto(event)" />
+          <input type="file" id="claimPhotoInput" accept="image/*" style="display:none" onchange="previewClaimPhoto(event)"/>
         </div>
-        <div id="claimPhotoPreviewWrap" style="display:none;margin-top:10px;position:relative;display:none">
-          <img id="claimPhotoPreview" style="width:100%;max-height:200px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2)" />
-          <button onclick="removeClaimPhoto()" style="position:absolute;top:6px;right:6px;background:var(--red-tx);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">×</button>
+        <div id="claimPhotoPreviewWrap" style="display:none;margin-top:8px" class="photo-preview-wrap">
+          <img id="claimPhotoPreview" alt="Bukti"/>
+          <button class="photo-remove-btn" onclick="removeClaimPhoto()">×</button>
         </div>
       </div>
     </div>
@@ -487,7 +670,7 @@ textarea { resize: vertical; }
   </div>
 </div>
 
-<!-- EXPIRE MODAL -->
+<!-- EXPIRE -->
 <div class="modal-bg" id="expireModal">
   <div class="modal">
     <div class="modal-header">
@@ -497,11 +680,22 @@ textarea { resize: vertical; }
     <div class="form-grid">
       <div class="form-group full">
         <label>Tanggal expired</label>
-        <input type="date" id="expireDate" />
+        <input type="date" id="expireDate"/>
+      </div>
+      <div class="form-group full">
+        <label>Tindak lanjut barang</label>
+        <select id="expireAction">
+          <option value="">— Pilih tindak lanjut —</option>
+          <option value="Dibuang">Dibuang</option>
+          <option value="Didonasikan">Didonasikan</option>
+          <option value="Disimpan gudang">Disimpan gudang</option>
+          <option value="Dikembalikan penemu">Dikembalikan kepada penemu</option>
+          <option value="Lainnya">Lainnya</option>
+        </select>
       </div>
       <div class="form-group full" style="flex-direction:row;align-items:center;gap:10px">
-        <input type="checkbox" id="returnedToFinder" style="width:auto;min-width:16px" />
-        <label for="returnedToFinder" style="cursor:pointer;font-weight:500">Dikembalikan kepada penemu</label>
+        <input type="checkbox" id="returnedToFinder" style="width:auto;min-width:18px;height:18px"/>
+        <label for="returnedToFinder" style="cursor:pointer;font-weight:500;font-size:13px">Dikembalikan kepada penemu</label>
       </div>
       <div class="form-group full">
         <label>Remark (opsional)</label>
@@ -515,37 +709,223 @@ textarea { resize: vertical; }
   </div>
 </div>
 
+<!-- ADD ITEM TYPE MODAL (from settings) -->
+<div class="modal-bg" id="addTypeModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="addTypeTitle">Tambah Jenis Barang</span>
+      <button class="btn btn-icon" onclick="closeModal('addTypeModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Nama jenis barang baru <span class="req">*</span></label>
+      <input type="text" id="newTypeName" placeholder="Contoh: Dompet, Kunci, Payung..."/>
+    </div>
+    <div class="action-row">
+      <button class="btn" onclick="closeModal('addTypeModal')">Batal</button>
+      <button class="btn btn-primary" onclick="confirmAddType()"><i class="ti ti-plus"></i> Tambah Jenis</button>
+    </div>
+  </div>
+</div>
+
+<!-- PHOTO VIEWER MODAL -->
+<div class="modal-bg" id="photoModal" style="background:rgba(0,0,0,.88);padding:12px">
+  <div class="photo-modal-inner">
+    <img id="photoModalImg" src="" alt="Foto"
+      style="max-width:90vw;max-height:82vh;object-fit:contain;border-radius:8px;display:block;box-shadow:0 4px 32px rgba(0,0,0,.5)"/>
+    <button onclick="closeModal('photoModal')"
+      style="position:fixed;top:14px;right:14px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.3);
+             color:#fff;border-radius:50%;width:36px;height:36px;font-size:20px;cursor:pointer;
+             display:flex;align-items:center;justify-content:center;z-index:10;backdrop-filter:blur(6px)">
+      <i class="ti ti-x"></i>
+    </button>
+    <div id="photoModalCaption"
+      style="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+             background:rgba(0,0,0,.65);color:#fff;padding:6px 18px;border-radius:20px;
+             font-size:12px;backdrop-filter:blur(6px);white-space:nowrap;max-width:80vw;
+             overflow:hidden;text-overflow:ellipsis;text-align:center"></div>
+  </div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="modal-bg" id="loginModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title"><i class="ti ti-shield-lock" style="color:var(--green)"></i> Login Admin</span>
+      <button class="btn btn-icon" onclick="closeModal('loginModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px">
+      Masukkan kredensial admin untuk mengakses fitur tambah, edit, dan ubah status barang.
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="admin@golfclub.com" autocomplete="username"/>
+    </div>
+    <div class="form-group" style="margin-bottom:4px">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <div id="loginError" style="font-size:12px;color:var(--red-tx);min-height:18px;margin-top:6px"></div>
+    <div class="action-row">
+      <button class="btn" onclick="closeModal('loginModal')">Batal</button>
+      <button class="btn btn-primary" onclick="doLogin()" id="loginBtn">
+        <i class="ti ti-login"></i> Masuk
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════
-//  CONFIGURATION — ganti dengan nilai dari Supabase Anda
+//  CONFIGURATION
 // ══════════════════════════════════════════════
-const SUPABASE_URL  = 'https://pflahcpizoqljoltmczg.supabase.co';   
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmbGFoY3Bpem9xbGpvbHRtY3pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NzAyMjYsImV4cCI6MjA5NzI0NjIyNn0.CyKFxVF76Q6IwGd2zU201Peutvv0JoPZGJcs2tFEX-E';  
-// ══════════════════════════════════════════════
-//  Supabase client
-// ══════════════════════════════════════════════
+const SUPABASE_URL  = 'https://pflahcpizoqljoltmczg.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmbGFoY3Bpem9xbGpvbHRtY3pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NzAyMjYsImV4cCI6MjA5NzI0NjIyNn0.CyKFxVF76Q6IwGd2zU201Peutvv0JoPZGJcs2tFEX-E';
+
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // ══════════════════════════════════════════════
-//  Constants
+//  DEFAULT ITEM TYPES (bisa ditambah dari UI)
 // ══════════════════════════════════════════════
-const ITEM_TYPES = {
-  'Pakaian':              ['Baju','Topi','Celana','Ikat pinggang','Sarung tangan','Kaos kaki','Tas','Ransel','Kacamata'],
-  'Alas Kaki':            ['Sepatu','Sandal'],
-  'Elektronik & Berharga':['Handphone','Range Finder','Perhiasan','Jam tangan','Vape / Rokok elektrik']
+const DEFAULT_ITEM_TYPES = {
+  'Pakaian':               ['Baju','Topi','Celana','Ikat pinggang','Sarung tangan','Kaos kaki','Tas','Ransel','Kacamata','Lainnya...'],
+  'Alas Kaki':             ['Sepatu','Sandal','Lainnya...'],
+  'Elektronik & Berharga': ['Handphone','Range Finder','Perhiasan','Jam tangan','Vape / Rokok elektrik','Lainnya...']
 };
-const STORAGE_MONTHS = { 'Pakaian':3, 'Alas Kaki':6, 'Elektronik & Berharga':12 };
+const DEFAULT_STORAGE_MONTHS = { 'Pakaian':3, 'Alas Kaki':6, 'Elektronik & Berharga':12 };
 
+// Runtime state — merged with localStorage custom types
+let ITEM_TYPES = {};
+let STORAGE_MONTHS = {};
 let cachedItems = [];
 let actionItemId = null;
+let addTypeTargetCat = null;
 
 // ══════════════════════════════════════════════
-//  Helpers
+//  AUTH STATE
 // ══════════════════════════════════════════════
-function showLoading(v) {
-  document.getElementById('loadingOverlay').classList.toggle('show', v);
+let currentUser = null;  // null = public, object = admin
+
+function applyAuthUI() {
+  const isAdmin = !!currentUser;
+  // Toggle body class — CSS handles hiding admin-only elements
+  document.body.classList.toggle('is-public', !isAdmin);
+  // Role badge
+  const badge = document.getElementById('roleBadge');
+  badge.className = `role-badge ${isAdmin ? 'admin' : 'public'}`;
+  badge.innerHTML = isAdmin
+    ? `<i class="ti ti-shield-check"></i> Admin: ${currentUser.email.split('@')[0]}`
+    : `<i class="ti ti-eye"></i> Mode: Publik`;
+  // Auth button label
+  const btn = document.getElementById('authBtn');
+  btn.innerHTML = isAdmin
+    ? `<i class="ti ti-logout"></i> Logout`
+    : `<i class="ti ti-login"></i> Login Admin`;
 }
+
+function handleAuthBtn() {
+  if (currentUser) {
+    doLogout();
+  } else {
+    document.getElementById('loginError').textContent = '';
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('loginModal').classList.add('open');
+    setTimeout(()=>document.getElementById('loginEmail').focus(), 150);
+  }
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const btn   = document.getElementById('loginBtn');
+  if (!email || !pass) { errEl.textContent = 'Email dan password wajib diisi'; return; }
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader"></i> Masuk...';
+  errEl.textContent = '';
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ti ti-login"></i> Masuk';
+  if (error) { errEl.textContent = 'Login gagal: ' + error.message; return; }
+  currentUser = data.user;
+  closeModal('loginModal');
+  applyAuthUI();
+  toast('Login berhasil. Selamat datang, Admin ✓');
+  closeSidebar();
+}
+
+async function doLogout() {
+  await db.auth.signOut();
+  currentUser = null;
+  applyAuthUI();
+  // If currently on admin-only page, redirect to dashboard
+  const adminPages = ['add','settings'];
+  const activePage = document.querySelector('.page.active');
+  if (activePage && adminPages.some(p => activePage.id === 'page-'+p)) {
+    nav('dashboard');
+  }
+  toast('Logout berhasil');
+}
+
+// ══════════════════════════════════════════════
+//  CUSTOM TYPES — stored in localStorage
+// ══════════════════════════════════════════════
+function loadCustomTypes() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('lf_custom_types') || '{}');
+    ITEM_TYPES = {};
+    STORAGE_MONTHS = { ...DEFAULT_STORAGE_MONTHS };
+    // Merge defaults + custom
+    const allCats = new Set([...Object.keys(DEFAULT_ITEM_TYPES), ...Object.keys(saved)]);
+    allCats.forEach(cat => {
+      const defaults = DEFAULT_ITEM_TYPES[cat] || [];
+      const customs  = saved[cat]?.types || [];
+      // Remove 'Lainnya...' from defaults, append customs, add 'Lainnya...' at end
+      const base = defaults.filter(t => t !== 'Lainnya...');
+      const merged = [...new Set([...base, ...customs])];
+      ITEM_TYPES[cat] = [...merged, 'Lainnya...'];
+      if (saved[cat]?.months) STORAGE_MONTHS[cat] = saved[cat].months;
+    });
+  } catch(e) {
+    ITEM_TYPES = { ...DEFAULT_ITEM_TYPES };
+    STORAGE_MONTHS = { ...DEFAULT_STORAGE_MONTHS };
+  }
+}
+
+function saveCustomTypes() {
+  const data = {};
+  Object.keys(ITEM_TYPES).forEach(cat => {
+    const base = (DEFAULT_ITEM_TYPES[cat] || []).filter(t => t !== 'Lainnya...');
+    const all  = ITEM_TYPES[cat].filter(t => t !== 'Lainnya...');
+    const customs = all.filter(t => !base.includes(t));
+    data[cat] = {
+      types: customs,
+      months: STORAGE_MONTHS[cat]
+    };
+  });
+  localStorage.setItem('lf_custom_types', JSON.stringify(data));
+}
+
+// ══════════════════════════════════════════════
+//  MOBILE SIDEBAR
+// ══════════════════════════════════════════════
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+// ══════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════
+function showLoading(v) { document.getElementById('loadingOverlay').classList.toggle('show', v); }
 
 let toastTimer;
 function toast(msg, type='success') {
@@ -553,70 +933,49 @@ function toast(msg, type='success') {
   el.innerHTML = `<i class="ti ti-${type==='success'?'circle-check':'alert-circle'}"></i> ${msg}`;
   el.className = `toast show ${type}`;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>el.classList.remove('show'), 3000);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 3200);
 }
 
 function fmt(s) {
   if (!s) return '—';
   return new Date(s).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
 }
-
 function addMonths(dateStr, m) {
-  const d = new Date(dateStr);
-  d.setMonth(d.getMonth() + m);
+  const d = new Date(dateStr); d.setMonth(d.getMonth()+m);
   return d.toISOString().split('T')[0];
 }
-
 function daysLeft(expiry) {
   const now = new Date(); now.setHours(0,0,0,0);
   return Math.round((new Date(expiry) - now) / 86400000);
 }
-
-function statusBadge(s) {
-  return `<span class="badge badge-${s.toLowerCase()}">${s}</span>`;
-}
-
+function statusBadge(s) { return `<span class="badge badge-${s.toLowerCase()}">${s}</span>`; }
 function daysLeftBadge(expiry) {
   const d = daysLeft(expiry);
-  if (d < 0)  return `<span class="badge badge-expired">Lewat ${Math.abs(d)}h</span>`;
+  if (d < 0)   return `<span class="badge badge-expired">Lewat ${Math.abs(d)}h</span>`;
   if (d <= 7)  return `<span class="badge badge-expired">${d} hari</span>`;
   if (d <= 30) return `<span class="badge badge-warning">${d} hari</span>`;
   return `<span class="badge badge-neutral">${d} hari</span>`;
 }
 
-// DB column → JS
 function mapItem(r) {
   return {
-    id:               r.id,
-    date:             r.date,
-    finder:           r.finder,
-    dept:             r.dept,
-    category:         r.category,
-    itemType:         r.item_type,
-    desc:             r.description,
-    location:         r.location,
-    photoUrl:         r.photo_url,
-    remark:           r.remark,
-    status:           r.status,
-    expiryDate:       r.expiry_date,
-    claimDate:        r.claim_date,
-    claimName:        r.claim_name,
-    claimRemark:      r.claim_remark,
-    claimPhotoUrl:    r.claim_photo_url,
-    expireDate:       r.expire_date,
-    returnedToFinder: r.returned_to_finder,
-    expireRemark:     r.expire_remark,
-    createdAt:        r.created_at,
+    id:r.id, date:r.date, finder:r.finder, dept:r.dept,
+    category:r.category, itemType:r.item_type, desc:r.description,
+    location:r.location, photoUrl:r.photo_url, remark:r.remark,
+    status:r.status, expiryDate:r.expiry_date,
+    claimDate:r.claim_date, claimName:r.claim_name,
+    claimRemark:r.claim_remark, claimPhotoUrl:r.claim_photo_url,
+    expireDate:r.expire_date, returnedToFinder:r.returned_to_finder,
+    expireRemark:r.expire_remark, expireAction:r.expire_action,
+    createdAt:r.created_at,
   };
 }
 
 // ══════════════════════════════════════════════
-//  Load data
+//  DATA LOAD
 // ══════════════════════════════════════════════
 async function loadAll() {
-  showLoading(true);
-  const { data, error } = await db.from('lost_found_items').select('*').order('date', { ascending: true });
-  showLoading(false);
+  const { data, error } = await db.from('lost_found_items').select('*').order('date',{ascending:true});
   if (error) { toast('Gagal memuat data: '+error.message,'error'); return; }
   cachedItems = (data||[]).map(mapItem);
   updateNavBadges();
@@ -624,75 +983,115 @@ async function loadAll() {
 
 function updateNavBadges() {
   const n = cachedItems.filter(i=>i.status==='Ongoing').length;
-  document.getElementById('badge-ongoing').textContent = n;
-  document.getElementById('badge-ongoing').style.display = n ? 'inline' : 'none';
+  const badge = document.getElementById('badge-ongoing');
+  badge.textContent = n;
+  badge.style.display = n ? 'inline' : 'none';
 }
 
 // ══════════════════════════════════════════════
-//  Navigation
+//  NAVIGATION
 // ══════════════════════════════════════════════
 async function nav(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  // Guard admin-only pages
+  const adminOnlyPages = ['add', 'settings'];
+  if (adminOnlyPages.includes(page) && !currentUser) {
+    toast('Login sebagai Admin untuk mengakses halaman ini','error');
+    handleAuthBtn();
+    return;
+  }
+  closeSidebar();
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
   const ni = document.getElementById('nav-'+page);
   if (ni) ni.classList.add('active');
-
+  showLoading(true);
   await loadAll();
+  showLoading(false);
   if (page==='dashboard') renderDashboard();
   else if (page==='ongoing')  renderOngoing();
   else if (page==='claimed')  renderClaimed();
   else if (page==='expired')  renderExpired();
+  else if (page==='settings') renderSettings();
 }
 
 // ══════════════════════════════════════════════
-//  Dashboard
+//  DASHBOARD
 // ══════════════════════════════════════════════
 function renderDashboard() {
   document.getElementById('dashDate').textContent =
     new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-
   const ongoing  = cachedItems.filter(i=>i.status==='Ongoing').length;
   const claimed  = cachedItems.filter(i=>i.status==='Claimed').length;
   const expired  = cachedItems.filter(i=>i.status==='Expired').length;
-  const expiring = cachedItems.filter(i=>i.status==='Ongoing' && daysLeft(i.expiryDate)<=30 && daysLeft(i.expiryDate)>=0).length;
-
+  const expiring = cachedItems.filter(i=>i.status==='Ongoing'&&daysLeft(i.expiryDate)<=30&&daysLeft(i.expiryDate)>=0).length;
   document.getElementById('s-ongoing').textContent  = ongoing;
   document.getElementById('s-claimed').textContent  = claimed;
   document.getElementById('s-expired').textContent  = expired;
   document.getElementById('s-expiring').textContent = expiring;
   document.getElementById('s-total').textContent    = cachedItems.length;
 
-  const soon = cachedItems
-    .filter(i=>i.status==='Ongoing' && daysLeft(i.expiryDate)<=30 && daysLeft(i.expiryDate)>=0)
+  const soon = cachedItems.filter(i=>i.status==='Ongoing'&&daysLeft(i.expiryDate)<=30&&daysLeft(i.expiryDate)>=0)
     .sort((a,b)=>new Date(a.date)-new Date(b.date));
-
-  if (!soon.length) {
-    document.getElementById('expiringList').innerHTML = '<div class="empty-state"><i class="ti ti-circle-check" style="color:var(--green)"></i><p>Tidak ada barang akan kedaluwarsa dalam 30 hari</p></div>';
-  } else {
-    document.getElementById('expiringList').innerHTML =
-      `<table><thead><tr><th>Tanggal</th><th>Jenis barang</th><th>Dept</th><th>Lokasi</th><th>Sisa hari</th></tr></thead>
-      <tbody>${soon.map(i=>`<tr onclick="showDetail(${i.id})"><td>${fmt(i.date)}</td><td>${i.itemType}<br><small style="color:var(--text3)">${i.category}</small></td><td>${i.dept}</td><td>${i.location}</td><td>${daysLeftBadge(i.expiryDate)}</td></tr>`).join('')}</tbody></table>`;
-  }
+  document.getElementById('expiringList').innerHTML = soon.length
+    ? `<table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Sisa</th></tr></thead>
+       <tbody>${soon.map(i=>`<tr onclick="showDetail(${i.id})">
+         <td>${fmt(i.date)}</td>
+         <td><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></td>
+         <td>${i.dept}</td><td>${i.location}</td>
+         <td>${daysLeftBadge(i.expiryDate)}</td>
+       </tr>`).join('')}</tbody></table>`
+    : '<div class="empty-state" style="padding:20px"><i class="ti ti-circle-check" style="color:var(--green);font-size:28px;opacity:1"></i><p>Tidak ada yang akan kedaluwarsa dalam 30 hari</p></div>';
 
   const recent = cachedItems.slice().sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,6);
-  document.getElementById('recentList').innerHTML =
-    `<table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Status</th></tr></thead>
-    <tbody>${recent.map(i=>`<tr onclick="showDetail(${i.id})"><td>${fmt(i.date)}</td><td>${i.itemType}</td><td>${i.dept}</td><td>${i.location}</td><td>${statusBadge(i.status)}</td></tr>`).join('')}</tbody></table>`;
+  document.getElementById('recentList').innerHTML = recent.length
+    ? `<table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Status</th></tr></thead>
+       <tbody>${recent.map(i=>`<tr onclick="showDetail(${i.id})">
+         <td>${fmt(i.date)}</td><td>${i.itemType}</td>
+         <td>${i.dept}</td><td>${i.location}</td>
+         <td>${statusBadge(i.status)}</td>
+       </tr>`).join('')}</tbody></table>`
+    : '<div class="empty-state" style="padding:20px"><i class="ti ti-inbox"></i><p>Belum ada data</p></div>';
 }
 
 // ══════════════════════════════════════════════
-//  Add Item Form
+//  FORM — ADD NEW ITEM
 // ══════════════════════════════════════════════
 function onCategoryChange() {
   const cat = document.getElementById('fCategory').value;
   const sel = document.getElementById('fItemType');
   sel.innerHTML = '<option value="">— Pilih jenis —</option>';
+  document.getElementById('customTypeWrap').style.display = 'none';
   if (cat && ITEM_TYPES[cat]) {
     ITEM_TYPES[cat].forEach(t => {
-      const o = document.createElement('option'); o.value = t; o.textContent = t; sel.appendChild(o);
+      const o = document.createElement('option'); o.value=t; o.textContent=t; sel.appendChild(o);
     });
   }
+  updateExpiryPreview();
+}
+
+function onItemTypeChange() {
+  const val = document.getElementById('fItemType').value;
+  document.getElementById('customTypeWrap').style.display = val === 'Lainnya...' ? 'block' : 'none';
+  if (val !== 'Lainnya...') updateExpiryPreview();
+}
+
+function saveCustomType() {
+  const cat     = document.getElementById('fCategory').value;
+  const newType = document.getElementById('fCustomType').value.trim();
+  if (!newType) { toast('Ketik nama jenis barang dulu','error'); return; }
+  if (!cat) { toast('Pilih kategori dulu','error'); return; }
+  // Add to runtime list
+  const types = ITEM_TYPES[cat].filter(t=>t!=='Lainnya...');
+  if (types.includes(newType)) { toast('Jenis sudah ada','error'); return; }
+  ITEM_TYPES[cat] = [...types, newType, 'Lainnya...'];
+  saveCustomTypes();
+  // Refresh select and pick new value
+  onCategoryChange();
+  document.getElementById('fItemType').value = newType;
+  document.getElementById('customTypeWrap').style.display = 'none';
+  document.getElementById('fCustomType').value = '';
+  toast(`Jenis "${newType}" ditambahkan ✓`);
   updateExpiryPreview();
 }
 
@@ -703,36 +1102,41 @@ function updateExpiryPreview() {
   const prev = document.getElementById('expiryPreview');
   if (cat && date && m) {
     const exp = addMonths(date, m);
-    const label = m===3?'3 bulan':m===6?'6 bulan':'1 tahun';
-    document.getElementById('expiryText').textContent = `${label} — kedaluwarsa pada ${fmt(exp)}`;
+    const label = m===1?'1 bulan':m<12?`${m} bulan`:`${m/12} tahun`;
+    document.getElementById('expiryText').textContent = `${label} — kedaluwarsa ${fmt(exp)}`;
     prev.style.display = 'block';
   } else { prev.style.display = 'none'; }
 }
-
 document.getElementById('fDate').addEventListener('change', updateExpiryPreview);
-document.getElementById('fCategory').addEventListener('change', updateExpiryPreview);
 
 function previewPhoto(e) {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
-    const img = document.getElementById('photoPreviewImg');
-    img.src = ev.target.result; img.style.display = 'block';
+    document.getElementById('fPhotoPreview').src = ev.target.result;
+    document.getElementById('fPhotoPreviewWrap').style.display = 'block';
+    document.getElementById('fPhotoZone').style.display = 'none';
   };
   reader.readAsDataURL(file);
 }
+function removeItemPhoto() {
+  document.getElementById('fPhoto').value = '';
+  document.getElementById('fPhotoPreviewWrap').style.display = 'none';
+  document.getElementById('fPhotoZone').style.display = 'block';
+}
 
 function clearForm() {
-  ['fDate','fFinder','fDept','fCategory','fItemType','fLocation','fDesc','fRemark'].forEach(id => {
-    const el = document.getElementById(id);
-    el.value = (id==='fDate') ? new Date().toISOString().split('T')[0] : '';
-  });
+  ['fFinder','fLocation','fDesc','fRemark'].forEach(id=>document.getElementById(id).value='');
+  ['fDept','fCategory'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fItemType').innerHTML = '<option value="">— Pilih kategori dulu —</option>';
-  document.getElementById('photoPreviewImg').style.display = 'none';
+  document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('expiryPreview').style.display = 'none';
+  document.getElementById('customTypeWrap').style.display = 'none';
+  removeItemPhoto();
 }
 
 async function saveItem() {
+  if (!currentUser) { toast('Login sebagai Admin untuk menambah barang','error'); return; }
   const date     = document.getElementById('fDate').value;
   const finder   = document.getElementById('fFinder').value.trim();
   const dept     = document.getElementById('fDept').value;
@@ -740,45 +1144,37 @@ async function saveItem() {
   const itemType = document.getElementById('fItemType').value;
   const location = document.getElementById('fLocation').value.trim();
   const desc     = document.getElementById('fDesc').value.trim();
-
   if (!date||!finder||!dept||!cat||!itemType||!location||!desc) {
     toast('Lengkapi semua field wajib (*)','error'); return;
   }
-
+  if (itemType === 'Lainnya...') { toast('Simpan jenis barang baru dulu','error'); return; }
   const expiryDate = addMonths(date, STORAGE_MONTHS[cat]);
-  const photoData  = document.getElementById('photoPreviewImg').src || '';
-
   showLoading(true);
-
-  // Upload foto ke Supabase Storage jika ada
   let photoUrl = null;
   const photoFile = document.getElementById('fPhoto').files[0];
   if (photoFile) {
-    const fname = `${Date.now()}_${photoFile.name.replace(/\s/g,'_')}`;
-    const { data: upData, error: upErr } = await db.storage.from('lost-found-photos').upload(fname, photoFile);
+    const fname = `item_${Date.now()}_${photoFile.name.replace(/\s/g,'_')}`;
+    const { error:upErr } = await db.storage.from('lost-found-photos').upload(fname, photoFile);
     if (!upErr) {
-      const { data: urlData } = db.storage.from('lost-found-photos').getPublicUrl(fname);
+      const { data:urlData } = db.storage.from('lost-found-photos').getPublicUrl(fname);
       photoUrl = urlData.publicUrl;
     }
   }
-
   const { error } = await db.from('lost_found_items').insert({
-    date, finder, dept, category: cat, item_type: itemType,
-    description: desc, location,
-    photo_url: photoUrl,
-    remark: document.getElementById('fRemark').value,
-    status: 'Ongoing', expiry_date: expiryDate
+    date, finder, dept, category:cat, item_type:itemType,
+    description:desc, location, photo_url:photoUrl,
+    remark:document.getElementById('fRemark').value,
+    status:'Ongoing', expiry_date:expiryDate
   });
-
   showLoading(false);
   if (error) { toast('Gagal menyimpan: '+error.message,'error'); return; }
-  toast('Barang berhasil disimpan!');
+  toast('Barang berhasil disimpan ✓');
   clearForm();
   nav('ongoing');
 }
 
 // ══════════════════════════════════════════════
-//  Ongoing table
+//  RENDER TABLES + MOBILE CARDS
 // ══════════════════════════════════════════════
 function renderOngoing() {
   const kw   = (document.getElementById('ongoingKw').value||'').toLowerCase();
@@ -789,11 +1185,15 @@ function renderOngoing() {
   if (dept) list = list.filter(i=>i.dept===dept);
   if (kw)   list = list.filter(i=>[i.itemType,i.location,i.finder,i.desc,i.dept].some(f=>f&&f.toLowerCase().includes(kw)));
   list.sort((a,b)=>new Date(a.date)-new Date(b.date));
-
-  if (!list.length) { document.getElementById('ongoingTable').innerHTML='<div class="empty-state"><i class="ti ti-inbox"></i><p>Tidak ada item ditemukan</p></div>'; return; }
-
+  if (!list.length) {
+    const e = '<div class="empty-state"><i class="ti ti-inbox"></i><p>Tidak ada item ditemukan</p></div>';
+    document.getElementById('ongoingTable').innerHTML = e;
+    document.getElementById('ongoingCards').innerHTML = e;
+    return;
+  }
+  // Desktop table
   document.getElementById('ongoingTable').innerHTML =
-    `<table><thead><tr><th>#</th><th>Tanggal</th><th>Jenis barang</th><th>Dept</th><th>Lokasi</th><th>Penemu</th><th>Exp. Date</th><th>Sisa</th><th>Aksi</th></tr></thead>
+    `<table><thead><tr><th>#</th><th>Tanggal</th><th>Jenis Barang</th><th>Dept</th><th>Lokasi</th><th>Penemu</th><th>Exp. Date</th><th>Sisa</th><th>Aksi</th></tr></thead>
     <tbody>${list.map((i,n)=>`<tr>
       <td style="color:var(--text3);font-size:11px">${n+1}</td>
       <td>${fmt(i.date)}</td>
@@ -803,20 +1203,42 @@ function renderOngoing() {
       <td>${daysLeftBadge(i.expiryDate)}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">
         <button class="btn btn-icon btn-sm" onclick="showDetail(${i.id})" title="Detail"><i class="ti ti-eye"></i></button>
-        <button class="btn btn-primary btn-sm" onclick="openClaim(${i.id})" title="Tandai Claimed"><i class="ti ti-check"></i></button>
-        <button class="btn btn-danger btn-sm" onclick="openExpire(${i.id})" title="Tandai Expired"><i class="ti ti-alert-circle"></i></button>
+        <button class="btn btn-primary btn-sm admin-action" onclick="openClaim(${i.id})" title="Claimed"><i class="ti ti-check"></i></button>
+        <button class="btn btn-danger btn-sm admin-action" onclick="openExpire(${i.id})" title="Expired"><i class="ti ti-alert-circle"></i></button>
       </td>
     </tr>`).join('')}</tbody></table>`;
+  // Mobile cards
+  document.getElementById('ongoingCards').innerHTML = list.map(i=>`
+    <div class="item-card">
+      <div class="item-card-top">
+        <div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${daysLeftBadge(i.expiryDate)}</div>
+      </div>
+      <div class="item-card-body">
+        <div class="item-card-field"><label>Tanggal</label><div class="v">${fmt(i.date)}</div></div>
+        <div class="item-card-field"><label>Penemu</label><div class="v">${i.finder}</div></div>
+        <div class="item-card-field"><label>Dept</label><div class="v">${i.dept}</div></div>
+        <div class="item-card-field"><label>Lokasi</label><div class="v">${i.location}</div></div>
+        <div class="item-card-field" style="grid-column:1/-1"><label>Exp. Date</label><div class="v">${fmt(i.expiryDate)}</div></div>
+      </div>
+      <div class="item-card-actions">
+        <button class="btn btn-sm" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i> Detail</button>
+        <button class="btn btn-primary btn-sm admin-action" onclick="openClaim(${i.id})"><i class="ti ti-check"></i> Claimed</button>
+        <button class="btn btn-danger btn-sm admin-action" onclick="openExpire(${i.id})"><i class="ti ti-alert-circle"></i> Expired</button>
+      </div>
+    </div>`).join('');
 }
 
-// ══════════════════════════════════════════════
-//  Claimed table
-// ══════════════════════════════════════════════
 function renderClaimed() {
   const list = cachedItems.filter(i=>i.status==='Claimed').sort((a,b)=>new Date(a.date)-new Date(b.date));
-  if (!list.length) { document.getElementById('claimedTable').innerHTML='<div class="empty-state"><i class="ti ti-inbox"></i><p>Belum ada item claimed</p></div>'; return; }
+  if (!list.length) {
+    const e = '<div class="empty-state"><i class="ti ti-inbox"></i><p>Belum ada item claimed</p></div>';
+    document.getElementById('claimedTable').innerHTML = e;
+    document.getElementById('claimedCards').innerHTML = e;
+    return;
+  }
   document.getElementById('claimedTable').innerHTML =
-    `<table><thead><tr><th>#</th><th>Tanggal ditemukan</th><th>Jenis barang</th><th>Dept</th><th>Lokasi</th><th>Tgl diambil</th><th>Penerima</th><th>Aksi</th></tr></thead>
+    `<table><thead><tr><th>#</th><th>Tanggal ditemukan</th><th>Jenis Barang</th><th>Dept</th><th>Lokasi</th><th>Tgl diambil</th><th>Penerima</th><th>Aksi</th></tr></thead>
     <tbody>${list.map((i,n)=>`<tr>
       <td style="color:var(--text3);font-size:11px">${n+1}</td>
       <td>${fmt(i.date)}</td>
@@ -826,134 +1248,154 @@ function renderClaimed() {
       <td>${i.claimName||'—'}</td>
       <td onclick="event.stopPropagation()"><button class="btn btn-icon btn-sm" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i></button></td>
     </tr>`).join('')}</tbody></table>`;
+  document.getElementById('claimedCards').innerHTML = list.map(i=>`
+    <div class="item-card">
+      <div class="item-card-top">
+        <div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div>
+        ${statusBadge('Claimed')}
+      </div>
+      <div class="item-card-body">
+        <div class="item-card-field"><label>Tgl ditemukan</label><div class="v">${fmt(i.date)}</div></div>
+        <div class="item-card-field"><label>Tgl diambil</label><div class="v">${fmt(i.claimDate)}</div></div>
+        <div class="item-card-field"><label>Dept</label><div class="v">${i.dept}</div></div>
+        <div class="item-card-field"><label>Penerima</label><div class="v">${i.claimName||'—'}</div></div>
+      </div>
+      <div class="item-card-actions">
+        <button class="btn btn-sm btn-block" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i> Lihat Detail & Bukti</button>
+      </div>
+    </div>`).join('');
 }
 
-// ══════════════════════════════════════════════
-//  Expired table
-// ══════════════════════════════════════════════
 function renderExpired() {
   const list = cachedItems.filter(i=>i.status==='Expired').sort((a,b)=>new Date(a.date)-new Date(b.date));
-  if (!list.length) { document.getElementById('expiredTable').innerHTML='<div class="empty-state"><i class="ti ti-inbox"></i><p>Belum ada item expired</p></div>'; return; }
+  if (!list.length) {
+    const e = '<div class="empty-state"><i class="ti ti-inbox"></i><p>Belum ada item expired</p></div>';
+    document.getElementById('expiredTable').innerHTML = e;
+    document.getElementById('expiredCards').innerHTML = e;
+    return;
+  }
   document.getElementById('expiredTable').innerHTML =
-    `<table><thead><tr><th>#</th><th>Tanggal ditemukan</th><th>Jenis barang</th><th>Dept</th><th>Lokasi</th><th>Penemu</th><th>Tgl expired</th><th>Dikembalikan</th><th>Aksi</th></tr></thead>
+    `<table><thead><tr><th>#</th><th>Tanggal</th><th>Jenis Barang</th><th>Dept</th><th>Penemu</th><th>Lokasi</th><th>Tgl Expired</th><th>Dikembalikan</th><th>Aksi</th></tr></thead>
     <tbody>${list.map((i,n)=>`<tr>
       <td style="color:var(--text3);font-size:11px">${n+1}</td>
       <td>${fmt(i.date)}</td>
       <td><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></td>
-      <td>${i.dept}</td><td>${i.location}</td><td>${i.finder}</td>
+      <td>${i.dept}</td><td>${i.finder}</td><td>${i.location}</td>
       <td>${fmt(i.expireDate||i.expiryDate)}</td>
-      <td>${i.returnedToFinder ? '<span class="badge badge-claimed">Ya</span>' : '<span class="badge badge-neutral">Tidak</span>'}</td>
+      <td>${i.returnedToFinder?'<span class="badge badge-claimed">Ya</span>':'<span class="badge badge-neutral">Tidak</span>'}</td>
       <td onclick="event.stopPropagation()"><button class="btn btn-icon btn-sm" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i></button></td>
     </tr>`).join('')}</tbody></table>`;
+  document.getElementById('expiredCards').innerHTML = list.map(i=>`
+    <div class="item-card">
+      <div class="item-card-top">
+        <div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div>
+        ${statusBadge('Expired')}
+      </div>
+      <div class="item-card-body">
+        <div class="item-card-field"><label>Tgl ditemukan</label><div class="v">${fmt(i.date)}</div></div>
+        <div class="item-card-field"><label>Tgl expired</label><div class="v">${fmt(i.expireDate||i.expiryDate)}</div></div>
+        <div class="item-card-field"><label>Penemu</label><div class="v">${i.finder}</div></div>
+        <div class="item-card-field"><label>Dikembalikan</label><div class="v">${i.returnedToFinder?'Ya':'Tidak'}</div></div>
+      </div>
+      <div class="item-card-actions">
+        <button class="btn btn-sm btn-block" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i> Lihat Detail</button>
+      </div>
+    </div>`).join('');
 }
 
 // ══════════════════════════════════════════════
-//  Detail modal
+//  DETAIL MODAL
 // ══════════════════════════════════════════════
 function showDetail(id) {
   const i = cachedItems.find(x=>x.id===id); if (!i) return;
   document.getElementById('detailTitle').textContent = i.itemType;
-  const row = (l,v,full=false) => `<div class="detail-item"${full?' style="grid-column:1/-1"':''}><label>${l}</label><div class="val">${v||'—'}</div></div>`;
-
+  const row = (l,v,full=false)=>`<div class="detail-item"${full?' style="grid-column:1/-1"':''}><label>${l}</label><div class="val">${v||'—'}</div></div>`;
   let html = `<div class="detail-grid">
-    ${row('Tanggal ditemukan', fmt(i.date))}
-    ${row('Status', statusBadge(i.status))}
-    ${row('Penemu', i.finder)}
-    ${row('Departemen', i.dept)}
-    ${row('Kategori', i.category)}
-    ${row('Jenis barang', i.itemType)}
-    ${row('Lokasi', i.location)}
-    ${row('Deskripsi', i.desc, true)}
-    ${i.remark ? row('Remark', i.remark, true) : ''}
-    ${row('Tanggal kedaluwarsa', fmt(i.expiryDate))}
+    ${row('Tanggal ditemukan',fmt(i.date))}
+    ${row('Status',statusBadge(i.status))}
+    ${row('Penemu',i.finder)}
+    ${row('Departemen',i.dept)}
+    ${row('Kategori',i.category)}
+    ${row('Jenis barang',i.itemType)}
+    ${row('Lokasi',i.location)}
+    ${row('Deskripsi',i.desc,true)}
+    ${i.remark?row('Remark',i.remark,true):''}
+    ${row('Tanggal kedaluwarsa',fmt(i.expiryDate))}
   `;
-  if (i.status==='Claimed') html += row('Tgl diambil',fmt(i.claimDate))+row('Nama penerima',i.claimName||'—')+row('Remark claim',i.claimRemark||'—',true);
-  if (i.status==='Expired') html += row('Tgl expired',fmt(i.expireDate||i.expiryDate))+row('Dikembalikan ke penemu',i.returnedToFinder?'Ya':'Tidak')+row('Remark expired',i.expireRemark||'—',true);
+  if (i.status==='Claimed') html+=row('Tgl diambil',fmt(i.claimDate))+row('Nama penerima',i.claimName||'—')+row('Remark claim',i.claimRemark||'—',true);
+  if (i.status==='Expired') html+=row('Tgl expired',fmt(i.expireDate||i.expiryDate))+row('Dikembalikan',i.returnedToFinder?'Ya':'Tidak')+row('Tindak lanjut',i.expireAction||'—')+row('Remark expired',i.expireRemark||'—',true);
   html += '</div>';
 
-  // ── Foto barang ──
+  // Foto barang — klik buka photo modal (bukan tab baru)
+  html += `<div class="detail-section">
+    <div class="detail-section-title"><i class="ti ti-photo"></i> Foto Barang</div>`;
   if (i.photoUrl) {
-    html += `
-      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
-          <i class="ti ti-photo"></i> Foto Barang
-        </div>
-        <img src="${i.photoUrl}" 
-          onclick="window.open('${i.photoUrl}','_blank')"
-          title="Klik untuk lihat ukuran penuh"
-          style="max-width:100%;max-height:260px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:zoom-in;display:block" />
-        <div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="ti ti-zoom-in" style="font-size:11px"></i> Klik foto untuk lihat ukuran penuh</div>
-      </div>`;
+    html += `<img src="${i.photoUrl}"
+      onclick="openPhotoModal('${i.photoUrl}','Foto Barang — ${i.itemType}')"
+      title="Klik untuk perbesar"
+      style="max-width:100%;max-height:240px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:zoom-in;display:block"/>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="ti ti-zoom-in" style="font-size:11px"></i> Klik foto untuk perbesar</div>`;
   } else {
-    html += `
-      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
-          <i class="ti ti-photo"></i> Foto Barang
-        </div>
-        <div style="padding:16px;background:var(--surface2);border-radius:var(--radius);border:1px dashed var(--border2);text-align:center;color:var(--text3);font-size:12px">
-          <i class="ti ti-photo-off" style="font-size:24px;display:block;margin-bottom:4px;opacity:.4"></i>Tidak ada foto
-        </div>
-      </div>`;
+    html += `<div style="padding:20px;background:var(--surface2);border-radius:var(--radius);text-align:center;color:var(--text3);font-size:12px;border:1px dashed var(--border2)">
+      <i class="ti ti-photo-off" style="font-size:24px;display:block;margin-bottom:4px;opacity:.4"></i>Tidak ada foto barang</div>`;
   }
+  html += '</div>';
 
-  // ── Foto bukti klaim (hanya tampil jika status Claimed) ──
+  // Foto bukti klaim — klik buka photo modal
   if (i.status === 'Claimed') {
-    html += `
-      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
-          <i class="ti ti-id"></i> Bukti Pengambilan
-        </div>`;
+    html += `<div class="detail-section">
+      <div class="detail-section-title"><i class="ti ti-id"></i> Bukti Pengambilan</div>`;
     if (i.claimPhotoUrl) {
-      html += `
-        <img src="${i.claimPhotoUrl}" 
-          onclick="window.open('${i.claimPhotoUrl}','_blank')"
-          title="Klik untuk lihat ukuran penuh"
-          style="max-width:100%;max-height:260px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:zoom-in;display:block" />
-        <div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="ti ti-zoom-in" style="font-size:11px"></i> Klik foto untuk lihat ukuran penuh</div>`;
+      html += `<img src="${i.claimPhotoUrl}"
+        onclick="openPhotoModal('${i.claimPhotoUrl}','Bukti Pengambilan — ${i.claimName||i.itemType}')"
+        title="Klik untuk perbesar"
+        style="max-width:100%;max-height:240px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:zoom-in;display:block"/>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="ti ti-zoom-in" style="font-size:11px"></i> Klik foto untuk perbesar</div>`;
     } else {
-      html += `
-        <div style="padding:16px;background:var(--surface2);border-radius:var(--radius);border:1px dashed var(--border2);text-align:center;color:var(--text3);font-size:12px">
-          <i class="ti ti-photo-off" style="font-size:24px;display:block;margin-bottom:4px;opacity:.4"></i>Tidak ada foto bukti pengambilan
-        </div>`;
+      html += `<div style="padding:20px;background:var(--surface2);border-radius:var(--radius);text-align:center;color:var(--text3);font-size:12px;border:1px dashed var(--border2)">
+        <i class="ti ti-photo-off" style="font-size:24px;display:block;margin-bottom:4px;opacity:.4"></i>Tidak ada foto bukti pengambilan</div>`;
     }
-    html += `</div>`;
+    html += '</div>';
   }
 
   document.getElementById('detailContent').innerHTML = html;
 
+  // Action buttons — admin-only Claimed/Expired buttons
   let acts = `<button class="btn" onclick="closeModal('detailModal')">Tutup</button>`;
-  if (i.status==='Ongoing') acts +=
-    `<button class="btn btn-primary" onclick="closeModal('detailModal');openClaim(${i.id})"><i class="ti ti-check"></i> Tandai Claimed</button>
-     <button class="btn btn-danger" onclick="closeModal('detailModal');openExpire(${i.id})"><i class="ti ti-alert-circle"></i> Tandai Expired</button>`;
+  if (i.status==='Ongoing' && currentUser) acts +=
+    `<button class="btn btn-primary admin-action" onclick="closeModal('detailModal');openClaim(${i.id})"><i class="ti ti-check"></i> Claimed</button>
+     <button class="btn btn-danger admin-action" onclick="closeModal('detailModal');openExpire(${i.id})"><i class="ti ti-alert-circle"></i> Expired</button>`;
   document.getElementById('detailActions').innerHTML = acts;
   document.getElementById('detailModal').classList.add('open');
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
+// ── Photo viewer ──
+function openPhotoModal(url, caption) {
+  document.getElementById('photoModalImg').src = url;
+  document.getElementById('photoModalCaption').textContent = caption || '';
+  document.getElementById('photoModal').classList.add('open');
+}
+
 // ══════════════════════════════════════════════
-//  Claim
+//  CLAIM
 // ══════════════════════════════════════════════
 function previewClaimPhoto(e) {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
-    const wrap = document.getElementById('claimPhotoPreviewWrap');
-    const img  = document.getElementById('claimPhotoPreview');
-    img.src = ev.target.result;
-    wrap.style.display = 'block';
+    document.getElementById('claimPhotoPreview').src = ev.target.result;
+    document.getElementById('claimPhotoPreviewWrap').style.display = 'block';
     document.getElementById('claimPhotoZone').style.display = 'none';
   };
   reader.readAsDataURL(file);
 }
-
 function removeClaimPhoto() {
   document.getElementById('claimPhotoInput').value = '';
-  document.getElementById('claimPhotoPreview').src = '';
   document.getElementById('claimPhotoPreviewWrap').style.display = 'none';
   document.getElementById('claimPhotoZone').style.display = 'block';
 }
-
 function openClaim(id) {
   actionItemId = id;
   document.getElementById('claimDate').value = new Date().toISOString().split('T')[0];
@@ -962,32 +1404,27 @@ function openClaim(id) {
   removeClaimPhoto();
   document.getElementById('claimModal').classList.add('open');
 }
-
 async function confirmClaim() {
+  if (!currentUser) { toast('Login sebagai Admin untuk mengubah status','error'); return; }
   const d = document.getElementById('claimDate').value;
   if (!d) { toast('Pilih tanggal pengambilan','error'); return; }
   showLoading(true);
-
-  // Upload foto bukti jika ada
   let claimPhotoUrl = null;
   const claimFile = document.getElementById('claimPhotoInput').files[0];
   if (claimFile) {
     const fname = `claim_${actionItemId}_${Date.now()}_${claimFile.name.replace(/\s/g,'_')}`;
-    const { error: upErr } = await db.storage.from('lost-found-photos').upload(fname, claimFile);
+    const { error:upErr } = await db.storage.from('lost-found-photos').upload(fname, claimFile);
     if (!upErr) {
-      const { data: urlData } = db.storage.from('lost-found-photos').getPublicUrl(fname);
+      const { data:urlData } = db.storage.from('lost-found-photos').getPublicUrl(fname);
       claimPhotoUrl = urlData.publicUrl;
     }
   }
-
   const updateData = {
-    status:           'Claimed',
-    claim_date:       d,
-    claim_name:       document.getElementById('claimName').value,
-    claim_remark:     document.getElementById('claimRemark').value,
+    status:'Claimed', claim_date:d,
+    claim_name:document.getElementById('claimName').value,
+    claim_remark:document.getElementById('claimRemark').value,
   };
   if (claimPhotoUrl) updateData.claim_photo_url = claimPhotoUrl;
-
   const { error } = await db.from('lost_found_items').update(updateData).eq('id', actionItemId);
   showLoading(false);
   if (error) { toast('Gagal update: '+error.message,'error'); return; }
@@ -997,23 +1434,25 @@ async function confirmClaim() {
 }
 
 // ══════════════════════════════════════════════
-//  Expire
+//  EXPIRE
 // ══════════════════════════════════════════════
 function openExpire(id) {
   actionItemId = id;
   document.getElementById('expireDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('expireRemark').value = '';
+  document.getElementById('expireAction').value = '';
   document.getElementById('returnedToFinder').checked = false;
   document.getElementById('expireModal').classList.add('open');
 }
-
 async function confirmExpire() {
+  if (!currentUser) { toast('Login sebagai Admin untuk mengubah status','error'); return; }
   showLoading(true);
   const { error } = await db.from('lost_found_items').update({
-    status: 'Expired',
-    expire_date:        document.getElementById('expireDate').value,
-    returned_to_finder: document.getElementById('returnedToFinder').checked,
-    expire_remark:      document.getElementById('expireRemark').value,
+    status:'Expired',
+    expire_date:document.getElementById('expireDate').value,
+    returned_to_finder:document.getElementById('returnedToFinder').checked,
+    expire_remark:document.getElementById('expireRemark').value,
+    expire_action:document.getElementById('expireAction').value || null,
   }).eq('id', actionItemId);
   showLoading(false);
   if (error) { toast('Gagal update: '+error.message,'error'); return; }
@@ -1023,8 +1462,17 @@ async function confirmExpire() {
 }
 
 // ══════════════════════════════════════════════
-//  Search
+//  SEARCH
 // ══════════════════════════════════════════════
+function populateSearchTypes() {
+  const sel = document.getElementById('sType');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Semua jenis</option>';
+  const allTypes = [...new Set(Object.values(ITEM_TYPES).flat().filter(t=>t!=='Lainnya...'))].sort();
+  allTypes.forEach(t=>{ const o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o); });
+  sel.value = current;
+}
+
 function doSearch() {
   const kw     = document.getElementById('sKw').value.toLowerCase();
   const status = document.getElementById('sStatus').value;
@@ -1034,30 +1482,47 @@ function doSearch() {
   const from   = document.getElementById('sFrom').value;
   const to     = document.getElementById('sTo').value;
   let list = cachedItems.slice();
-  if (status) list = list.filter(i=>i.status===status);
-  if (dept)   list = list.filter(i=>i.dept===dept);
-  if (cat)    list = list.filter(i=>i.category===cat);
-  if (type)   list = list.filter(i=>i.itemType===type);
-  if (from)   list = list.filter(i=>i.date>=from);
-  if (to)     list = list.filter(i=>i.date<=to);
-  if (kw)     list = list.filter(i=>[i.itemType,i.location,i.finder,i.desc,i.dept,i.category,i.status].some(f=>f&&f.toLowerCase().includes(kw)));
+  if (status) list=list.filter(i=>i.status===status);
+  if (dept)   list=list.filter(i=>i.dept===dept);
+  if (cat)    list=list.filter(i=>i.category===cat);
+  if (type)   list=list.filter(i=>i.itemType===type);
+  if (from)   list=list.filter(i=>i.date>=from);
+  if (to)     list=list.filter(i=>i.date<=to);
+  if (kw)     list=list.filter(i=>[i.itemType,i.location,i.finder,i.desc,i.dept,i.category,i.status].some(f=>f&&f.toLowerCase().includes(kw)));
   list.sort((a,b)=>new Date(a.date)-new Date(b.date));
-
-  if (!list.length) { document.getElementById('searchResults').innerHTML='<div class="empty-state card"><i class="ti ti-search-off"></i><p>Tidak ada hasil untuk filter yang dipilih</p></div>'; return; }
+  if (!list.length) {
+    document.getElementById('searchResults').innerHTML='<div class="empty-state card"><i class="ti ti-search-off"></i><p>Tidak ada hasil</p></div>'; return;
+  }
   document.getElementById('searchResults').innerHTML =
     `<div class="table-wrap">
-      <div style="padding:10px 14px;font-size:12px;color:var(--text3);border-bottom:1px solid var(--border)">${list.length} item ditemukan</div>
-      <table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Kategori</th><th>Dept</th><th>Lokasi</th><th>Penemu</th><th>Status</th><th></th></tr></thead>
+      <div style="padding:9px 14px;font-size:12px;color:var(--text3);border-bottom:1px solid var(--border)">${list.length} item ditemukan</div>
+      <table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Penemu</th><th>Status</th><th></th></tr></thead>
       <tbody>${list.map(i=>`<tr>
-        <td>${fmt(i.date)}</td><td>${i.itemType}</td>
-        <td><span class="badge badge-neutral" style="font-size:10px">${i.category}</span></td>
+        <td>${fmt(i.date)}</td>
+        <td><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></td>
         <td>${i.dept}</td><td>${i.location}</td><td>${i.finder}</td>
         <td>${statusBadge(i.status)}</td>
         <td onclick="event.stopPropagation()"><button class="btn btn-icon btn-sm" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i></button></td>
       </tr>`).join('')}</tbody></table>
+    </div>
+    <div class="item-card-list" style="display:flex">
+      ${list.map(i=>`<div class="item-card">
+        <div class="item-card-top">
+          <div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div>
+          ${statusBadge(i.status)}
+        </div>
+        <div class="item-card-body">
+          <div class="item-card-field"><label>Tanggal</label><div class="v">${fmt(i.date)}</div></div>
+          <div class="item-card-field"><label>Penemu</label><div class="v">${i.finder}</div></div>
+          <div class="item-card-field"><label>Dept</label><div class="v">${i.dept}</div></div>
+          <div class="item-card-field"><label>Lokasi</label><div class="v">${i.location}</div></div>
+        </div>
+        <div class="item-card-actions">
+          <button class="btn btn-sm btn-block" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i> Detail</button>
+        </div>
+      </div>`).join('')}
     </div>`;
 }
-
 function clearSearch() {
   ['sKw','sFrom','sTo'].forEach(id=>document.getElementById(id).value='');
   ['sStatus','sDept','sCat','sType'].forEach(id=>document.getElementById(id).value='');
@@ -1065,126 +1530,223 @@ function clearSearch() {
 }
 
 // ══════════════════════════════════════════════
-//  Reports
+//  REPORTS
 // ══════════════════════════════════════════════
 function getReportData() {
-  const from = document.getElementById('rFrom').value;
-  const to   = document.getElementById('rTo').value;
-  let list   = cachedItems.slice();
-  if (from) list = list.filter(i=>i.date>=from);
-  if (to)   list = list.filter(i=>i.date<=to);
+  const from=document.getElementById('rFrom').value, to=document.getElementById('rTo').value;
+  let list=cachedItems.slice();
+  if (from) list=list.filter(i=>i.date>=from);
+  if (to)   list=list.filter(i=>i.date<=to);
   return list.sort((a,b)=>new Date(a.date)-new Date(b.date));
 }
-
 function generateReport() {
-  const list = getReportData();
-  const ongoing = list.filter(i=>i.status==='Ongoing').length;
-  const claimed = list.filter(i=>i.status==='Claimed').length;
-  const expired = list.filter(i=>i.status==='Expired').length;
-
-  const rs = document.getElementById('reportStats');
-  rs.style.display = 'grid';
-  rs.innerHTML = `
+  const list=getReportData();
+  const ongoing=list.filter(i=>i.status==='Ongoing').length;
+  const claimed=list.filter(i=>i.status==='Claimed').length;
+  const expired=list.filter(i=>i.status==='Expired').length;
+  const rs=document.getElementById('reportStats');
+  rs.style.display='grid';
+  rs.innerHTML=`
     <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value c-gray">${list.length}</div></div>
     <div class="stat-card"><div class="stat-label">Ongoing</div><div class="stat-value c-green">${ongoing}</div></div>
     <div class="stat-card"><div class="stat-label">Claimed</div><div class="stat-value c-blue">${claimed}</div></div>
-    <div class="stat-card"><div class="stat-label">Expired</div><div class="stat-value c-red">${expired}</div></div>
-  `;
-
-  if (!list.length) { document.getElementById('reportTableWrap').innerHTML='<div class="empty-state card"><i class="ti ti-inbox"></i><p>Tidak ada data untuk rentang tanggal ini</p></div>'; return; }
-  document.getElementById('reportTableWrap').innerHTML =
+    <div class="stat-card"><div class="stat-label">Expired</div><div class="stat-value c-red">${expired}</div></div>`;
+  if (!list.length) { document.getElementById('reportTableWrap').innerHTML='<div class="empty-state card"><i class="ti ti-inbox"></i><p>Tidak ada data</p></div>'; return; }
+  document.getElementById('reportTableWrap').innerHTML=
     `<div class="table-wrap"><table>
-      <thead><tr><th>Tanggal</th><th>Jenis</th><th>Kategori</th><th>Dept</th><th>Penemu</th><th>Lokasi</th><th>Deskripsi</th><th>Status</th><th>Exp. Date</th></tr></thead>
+      <thead><tr><th>Tanggal</th><th>Jenis</th><th>Kategori</th><th>Dept</th><th>Penemu</th><th>Lokasi</th><th>Deskripsi</th><th>Status</th><th>Exp.Date</th></tr></thead>
       <tbody>${list.map(i=>`<tr onclick="showDetail(${i.id})">
         <td>${fmt(i.date)}</td><td>${i.itemType}</td>
         <td><span class="badge badge-neutral" style="font-size:10px">${i.category}</span></td>
         <td>${i.dept}</td><td>${i.finder}</td><td>${i.location}</td>
-        <td style="max-width:180px;font-size:12px;color:var(--text2)">${i.desc}</td>
+        <td style="max-width:160px;font-size:12px;color:var(--text2)">${i.desc}</td>
         <td>${statusBadge(i.status)}</td>
         <td style="font-size:12px">${fmt(i.expiryDate)}</td>
-      </tr>`).join('')}</tbody>
-    </table></div>`;
+      </tr>`).join('')}</tbody></table></div>`;
 }
-
 function exportExcel() {
-  const list = getReportData();
-  const ws_data = [
-    ['ID','Tanggal Ditemukan','Penemu','Departemen','Kategori','Jenis Barang','Deskripsi','Lokasi','Remark','Status','Tanggal Kadaluwarsa','Tgl Claimed','Nama Penerima','Remark Claim','Tgl Expired','Dikembalikan ke Penemu','Remark Expired'],
+  const list=getReportData();
+  const ws_data=[
+    ['ID','Tanggal Ditemukan','Penemu','Departemen','Kategori','Jenis Barang','Deskripsi','Lokasi','Remark','Status','Tgl Kadaluwarsa','Tgl Claimed','Nama Penerima','Remark Claim','Tgl Expired','Dikembalikan','Remark Expired'],
     ...list.map(i=>[i.id,i.date,i.finder,i.dept,i.category,i.itemType,i.desc,i.location,i.remark||'',i.status,i.expiryDate,i.claimDate||'',i.claimName||'',i.claimRemark||'',i.expireDate||'',i.returnedToFinder?'Ya':'Tidak',i.expireRemark||''])
   ];
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(ws_data);
-  ws['!cols'] = ws_data[0].map((_,i)=>({wch: i===6||i===3?30:16}));
-  XLSX.utils.book_append_sheet(wb, ws, 'Lost & Found');
-  XLSX.writeFile(wb, `LostFound_${new Date().toISOString().split('T')[0]}.xlsx`);
+  const wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet(ws_data);
+  ws['!cols']=ws_data[0].map((_,i)=>({wch:i===6?30:16}));
+  XLSX.utils.book_append_sheet(wb,ws,'Lost & Found');
+  XLSX.writeFile(wb,`LostFound_${new Date().toISOString().split('T')[0]}.xlsx`);
   toast('File Excel berhasil diunduh ✓');
 }
-
 function exportPDF() {
-  const list = getReportData();
-  const from = document.getElementById('rFrom').value;
-  const to   = document.getElementById('rTo').value;
-  const win  = window.open('','_blank');
+  const list=getReportData();
+  const from=document.getElementById('rFrom').value, to=document.getElementById('rTo').value;
+  const win=window.open('','_blank');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lost & Found Report</title>
   <style>body{font-family:Arial,sans-serif;font-size:10px;padding:20px;color:#111}
   h2{font-size:14px;margin-bottom:2px;color:#1D9E75}p.sub{font-size:10px;color:#666;margin-bottom:14px}
   table{width:100%;border-collapse:collapse}th{background:#1D9E75;color:#fff;padding:5px 7px;text-align:left;font-size:9px}
-  td{padding:4px 7px;border-bottom:0.5px solid #ddd;font-size:9px}tr:nth-child(even){background:#f6f6f6}
-  .o{color:#0F6E56;font-weight:bold}.c{color:#185FA5;font-weight:bold}.e{color:#A32D2D;font-weight:bold}
+  td{padding:4px 7px;border-bottom:.5px solid #ddd;font-size:9px}tr:nth-child(even){background:#f6f6f6}
+  .o{color:#0F6E56;font-weight:700}.c{color:#185FA5;font-weight:700}.e{color:#A32D2D;font-weight:700}
   @media print{@page{margin:1cm}}</style></head>
   <body><h2>Lost & Found Report — Golf Club</h2>
-  <p class="sub">Periode: ${from||'awal'} s.d. ${to||'sekarang'} &nbsp;|&nbsp; Total: ${list.length} item &nbsp;|&nbsp; Dicetak: ${new Date().toLocaleDateString('id-ID')}</p>
-  <table><thead><tr><th>#</th><th>Tanggal</th><th>Jenis Barang</th><th>Kategori</th><th>Dept</th><th>Penemu</th><th>Lokasi</th><th>Deskripsi</th><th>Status</th><th>Exp. Date</th></tr></thead>
+  <p class="sub">Periode: ${from||'awal'} s.d. ${to||'sekarang'} | Total: ${list.length} item | Dicetak: ${new Date().toLocaleDateString('id-ID')}</p>
+  <table><thead><tr><th>#</th><th>Tanggal</th><th>Jenis Barang</th><th>Kategori</th><th>Dept</th><th>Penemu</th><th>Lokasi</th><th>Deskripsi</th><th>Status</th><th>Exp.Date</th></tr></thead>
   <tbody>${list.map((i,n)=>`<tr><td>${n+1}</td><td>${i.date}</td><td>${i.itemType}</td><td>${i.category}</td><td>${i.dept}</td><td>${i.finder}</td><td>${i.location}</td><td>${i.desc}</td><td class="${i.status==='Ongoing'?'o':i.status==='Claimed'?'c':'e'}">${i.status}</td><td>${i.expiryDate}</td></tr>`).join('')}
   </tbody></table></body></html>`);
-  win.document.close();
-  setTimeout(()=>win.print(), 500);
+  win.document.close(); setTimeout(()=>win.print(),400);
 }
 
 // ══════════════════════════════════════════════
-//  Init
+//  SETTINGS — KELOLA KATEGORI
 // ══════════════════════════════════════════════
-(async () => {
-  // Test koneksi Supabase
+function renderSettings() {
+  const container = document.getElementById('settingsCatList');
+  container.innerHTML = Object.keys(ITEM_TYPES).map(cat => {
+    const months = STORAGE_MONTHS[cat];
+    const label  = months===1?'1 bulan':months<12?`${months} bulan`:`${months/12===1?'1 tahun':`${months/12} tahun`}`;
+    const types  = ITEM_TYPES[cat].filter(t=>t!=='Lainnya...');
+    return `<div class="card" style="margin-bottom:12px">
+      <div class="card-title" style="justify-content:space-between">
+        <span><i class="ti ti-tag"></i> ${cat}</span>
+        <span class="badge badge-neutral" style="font-size:11px">Masa simpan: ${label}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+        ${types.map(t=>{
+          const isDefault = (DEFAULT_ITEM_TYPES[cat]||[]).includes(t);
+          return `<div style="display:inline-flex;align-items:center;gap:4px;background:${isDefault?'var(--surface2)':'var(--green-lt)'};border:1px solid ${isDefault?'var(--border)':'#9FE1CB'};border-radius:20px;padding:3px 10px;font-size:12px">
+            <span>${t}</span>
+            ${!isDefault?`<button onclick="removeType('${cat}','${t}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 2px" title="Hapus">×</button>`:''}
+          </div>`;
+        }).join('')}
+        <button class="btn btn-sm" onclick="openAddType('${cat}')" style="border-style:dashed">
+          <i class="ti ti-plus"></i> Tambah jenis
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAddType(cat) {
+  addTypeTargetCat = cat;
+  document.getElementById('addTypeTitle').textContent = `Tambah Jenis — ${cat}`;
+  document.getElementById('newTypeName').value = '';
+  document.getElementById('addTypeModal').classList.add('open');
+}
+function confirmAddType() {
+  const name = document.getElementById('newTypeName').value.trim();
+  if (!name) { toast('Ketik nama jenis barang','error'); return; }
+  const cat = addTypeTargetCat;
+  const types = ITEM_TYPES[cat].filter(t=>t!=='Lainnya...');
+  if (types.includes(name)) { toast('Jenis sudah ada','error'); return; }
+  ITEM_TYPES[cat] = [...types, name, 'Lainnya...'];
+  saveCustomTypes();
+  closeModal('addTypeModal');
+  toast(`"${name}" ditambahkan ke ${cat} ✓`);
+  renderSettings();
+  populateSearchTypes();
+}
+function removeType(cat, type) {
+  if (!confirm(`Hapus jenis "${type}" dari ${cat}?`)) return;
+  ITEM_TYPES[cat] = ITEM_TYPES[cat].filter(t=>t!==type);
+  saveCustomTypes();
+  toast(`"${type}" dihapus ✓`);
+  renderSettings();
+  populateSearchTypes();
+}
+function addNewCategory() {
+  const name   = document.getElementById('newCatName').value.trim();
+  const months = parseInt(document.getElementById('newCatMonths').value);
+  if (!name) { toast('Ketik nama kategori','error'); return; }
+  if (!months||months<1) { toast('Isi masa simpan (bulan)','error'); return; }
+  if (ITEM_TYPES[name]) { toast('Kategori sudah ada','error'); return; }
+  ITEM_TYPES[name] = ['Lainnya...'];
+  STORAGE_MONTHS[name] = months;
+  saveCustomTypes();
+  document.getElementById('newCatName').value = '';
+  document.getElementById('newCatMonths').value = '';
+  toast(`Kategori "${name}" ditambahkan ✓`);
+  renderSettings();
+  // Refresh category dropdowns
+  refreshCategoryDropdowns();
+}
+function refreshCategoryDropdowns() {
+  ['fCategory','ongoingCat','sCat'].forEach(id=>{
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    // Get all options except first (placeholder)
+    while(sel.options.length > 1) sel.remove(1);
+    Object.keys(ITEM_TYPES).forEach(cat=>{
+      const o=document.createElement('option');
+      o.value=cat;
+      const m=STORAGE_MONTHS[cat];
+      o.textContent=id==='fCategory'?`${cat} (${m<12?m+' bulan':m/12+' tahun'})`:cat;
+      sel.appendChild(o);
+    });
+    sel.value=cur;
+  });
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+(async()=>{
+  loadCustomTypes();
+  refreshCategoryDropdowns();
+  populateSearchTypes();
+
+  // Restore session (user stays logged in after refresh)
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+  }
+  applyAuthUI();
+
+  // Listen to future auth changes (login/logout from other tabs)
+  db.auth.onAuthStateChange((_event, session) => {
+    currentUser = session ? session.user : null;
+    applyAuthUI();
+  });
+
+  // Test Supabase connection
   try {
     const { error } = await db.from('lost_found_items').select('id').limit(1);
     const el = document.getElementById('connStatus');
     if (error) {
-      el.textContent = '● Offline';
-      el.style.cssText = 'background:var(--red-lt);color:var(--red-tx);font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600';
+      el.textContent='● Offline';
+      el.style.cssText='background:var(--red-lt);color:var(--red-tx);font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600';
     } else {
-      el.textContent = '● Connected';
-      el.style.cssText = 'background:var(--green-lt);color:var(--green-tx);font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600';
+      el.textContent='● Connected';
+      el.style.cssText='background:var(--green-lt);color:var(--green-tx);font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600';
     }
-  } catch(e) {
-    document.getElementById('connStatus').textContent = '● Config needed';
-  }
+  } catch(e) { document.getElementById('connStatus').textContent='● Config needed'; }
 
+  showLoading(true);
   await loadAll();
+  showLoading(false);
   renderDashboard();
 
-  // Set default tanggal form
+  // Default dates
   document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
-
-  // Set default report range (1 bulan terakhir)
-  const today = new Date();
+  const today=new Date(), m1ago=new Date(today);
+  m1ago.setMonth(m1ago.getMonth()-1);
   document.getElementById('rTo').value   = today.toISOString().split('T')[0];
-  const m1ago = new Date(today); m1ago.setMonth(m1ago.getMonth()-1);
   document.getElementById('rFrom').value = m1ago.toISOString().split('T')[0];
 
-  // Auto-expire items yang sudah lewat batas
-  const toExpire = cachedItems.filter(i=>i.status==='Ongoing' && daysLeft(i.expiryDate)<0);
-  if (toExpire.length) {
-    for (const item of toExpire) {
-      await db.from('lost_found_items').update({
-        status: 'Expired',
-        expire_date: item.expiryDate,
-      }).eq('id', item.id);
+  // Auto-expire (admin only — write permission required)
+  if (currentUser) {
+    const toExpire = cachedItems.filter(i=>i.status==='Ongoing'&&daysLeft(i.expiryDate)<0);
+    if (toExpire.length) {
+      for (const item of toExpire) {
+        await db.from('lost_found_items').update({status:'Expired',expire_date:item.expiryDate}).eq('id',item.id);
+      }
+      toast(`${toExpire.length} item otomatis di-expire`);
+      await loadAll(); renderDashboard();
     }
-    if (toExpire.length) toast(`${toExpire.length} item otomatis di-expire`,'success');
-    await loadAll();
-    renderDashboard();
   }
+
+  // Close modal on overlay click
+  document.querySelectorAll('.modal-bg').forEach(bg=>{
+    bg.addEventListener('click', e=>{ if(e.target===bg) bg.classList.remove('open'); });
+  });
 })();
 </script>
 </body>
