@@ -200,8 +200,22 @@ textarea{resize:vertical}
 body.is-public .nav-admin{display:none}
 /* Hide admin action buttons — tables, cards, detail modal */
 body.is-public .admin-action{display:none!important}
-/* Photo viewer */
-.photo-modal-inner{position:relative;display:flex;align-items:center;justify-content:center}
+/* ── Dashboard tables: scrollable on mobile ── */
+.dash-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.dash-table-wrap table{min-width:420px}
+/* Status badge: prevent overflow/cutoff */
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0}
+/* Dashboard recent list mobile card */
+.dash-card-list{display:none;flex-direction:column;gap:8px}
+.dash-item-card{background:var(--surface2);border-radius:var(--radius);padding:10px 12px;border:1px solid var(--border);cursor:pointer}
+.dash-item-card:active{opacity:.8}
+.dash-item-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.dash-item-name{font-weight:600;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-item-meta{font-size:11px;color:var(--text3)}
+@media(max-width:640px){
+  .dash-table-wrap{display:none}
+  .dash-card-list{display:flex}
+}
 
 /* ══════════════════════════════
    RESPONSIVE BREAKPOINTS
@@ -291,7 +305,7 @@ body.is-public .admin-action{display:none!important}
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-logo"><i class="ti ti-flag-2"></i><span>Lost & Found</span></div>
-      <div class="sidebar-sub">Golf Club System</div>
+      <div class="sidebar-sub">New Kuta Golf</div>
     </div>
     <div style="flex:1;padding:6px 0;overflow-y:auto">
       <div class="nav-section">Menu</div>
@@ -1034,23 +1048,39 @@ function renderDashboard() {
   const soon = cachedItems.filter(i=>i.status==='Ongoing'&&daysLeft(i.expiryDate)<=30&&daysLeft(i.expiryDate)>=0)
     .sort((a,b)=>new Date(a.date)-new Date(b.date));
   document.getElementById('expiringList').innerHTML = soon.length
-    ? `<table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Sisa</th></tr></thead>
+    ? `<div class="dash-table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Sisa</th></tr></thead>
        <tbody>${soon.map(i=>`<tr onclick="showDetail(${i.id})">
          <td>${fmt(i.date)}</td>
          <td><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></td>
          <td>${i.dept}</td><td>${i.location}</td>
          <td>${daysLeftBadge(i.expiryDate)}</td>
-       </tr>`).join('')}</tbody></table>`
+       </tr>`).join('')}</tbody></table></div>
+       <div class="dash-card-list">${soon.map(i=>`
+         <div class="dash-item-card" onclick="showDetail(${i.id})">
+           <div class="dash-item-top">
+             <span class="dash-item-name">${i.itemType}</span>
+             ${daysLeftBadge(i.expiryDate)}
+           </div>
+           <div class="dash-item-meta">${fmt(i.date)} · ${i.dept} · ${i.location}</div>
+         </div>`).join('')}</div>`
     : '<div class="empty-state" style="padding:20px"><i class="ti ti-circle-check" style="color:var(--green);font-size:28px;opacity:1"></i><p>Tidak ada yang akan kedaluwarsa dalam 30 hari</p></div>';
 
   const recent = cachedItems.slice().sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,6);
   document.getElementById('recentList').innerHTML = recent.length
-    ? `<table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Status</th></tr></thead>
+    ? `<div class="dash-table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Status</th></tr></thead>
        <tbody>${recent.map(i=>`<tr onclick="showDetail(${i.id})">
          <td>${fmt(i.date)}</td><td>${i.itemType}</td>
          <td>${i.dept}</td><td>${i.location}</td>
          <td>${statusBadge(i.status)}</td>
-       </tr>`).join('')}</tbody></table>`
+       </tr>`).join('')}</tbody></table></div>
+       <div class="dash-card-list">${recent.map(i=>`
+         <div class="dash-item-card" onclick="showDetail(${i.id})">
+           <div class="dash-item-top">
+             <span class="dash-item-name">${i.itemType}</span>
+             ${statusBadge(i.status)}
+           </div>
+           <div class="dash-item-meta">${fmt(i.date)} · ${i.dept} · ${i.location}</div>
+         </div>`).join('')}</div>`
     : '<div class="empty-state" style="padding:20px"><i class="ti ti-inbox"></i><p>Belum ada data</p></div>';
 }
 
@@ -1153,11 +1183,20 @@ async function saveItem() {
   let photoUrl = null;
   const photoFile = document.getElementById('fPhoto').files[0];
   if (photoFile) {
-    const fname = `item_${Date.now()}_${photoFile.name.replace(/\s/g,'_')}`;
-    const { error:upErr } = await db.storage.from('lost-and-found-photos').upload(fname, photoFile);
+    // Nama file aman untuk semua device (PC, Android, iPhone)
+    const ext = photoFile.name.split('.').pop().toLowerCase()
+      .replace('heic','jpg').replace('heif','jpg');
+    const fname = `item_${Date.now()}.${ext}`;
+    const { error:upErr } = await db.storage
+      .from('lost-and-found-photos')
+      .upload(fname, photoFile, { contentType: photoFile.type || 'image/jpeg' });
     if (!upErr) {
-      const { data:urlData } = db.storage.from('lost-and-found-photos').getPublicUrl(fname);
+      const { data:urlData } = db.storage
+        .from('lost-and-found-photos')
+        .getPublicUrl(fname);
       photoUrl = urlData.publicUrl;
+    } else {
+      toast('Foto gagal diupload: ' + upErr.message, 'error');
     }
   }
   const { error } = await db.from('lost_found_items').insert({
@@ -1326,14 +1365,20 @@ function showDetail(id) {
   if (i.status==='Expired') html+=row('Tgl expired',fmt(i.expireDate||i.expiryDate))+row('Dikembalikan',i.returnedToFinder?'Ya':'Tidak')+row('Tindak lanjut',i.expireAction||'—')+row('Remark expired',i.expireRemark||'—',true);
   html += '</div>';
 
-  // Foto barang — klik buka photo modal (bukan tab baru)
+  // Foto barang — klik buka photo modal
   html += `<div class="detail-section">
     <div class="detail-section-title"><i class="ti ti-photo"></i> Foto Barang</div>`;
   if (i.photoUrl) {
-    html += `<img src="${i.photoUrl}"
-      onclick="openPhotoModal('${i.photoUrl}','Foto Barang — ${i.itemType}')"
+    html += `<img
+      data-src="${i.photoUrl.replace(/"/g,'&quot;')}"
+      data-caption="Foto Barang — ${i.itemType.replace(/"/g,'&quot;')}"
+      onclick="openPhotoModalFromEl(this)"
       title="Klik untuk perbesar"
-      style="max-width:100%;max-height:240px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:zoom-in;display:block"/>
+      onerror="this.style.display='none';this.nextElementSibling.style.display='block'"
+      style="max-width:100%;max-height:240px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:zoom-in;display:block"
+      src="${i.photoUrl.replace(/"/g,'&quot;')}"/>
+      <div style="display:none;padding:20px;background:var(--surface2);border-radius:var(--radius);text-align:center;color:var(--text3);font-size:12px;border:1px dashed var(--border2)">
+        <i class="ti ti-photo-off" style="font-size:24px;display:block;margin-bottom:4px;opacity:.4"></i>Foto tidak dapat dimuat</div>
       <div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="ti ti-zoom-in" style="font-size:11px"></i> Klik foto untuk perbesar</div>`;
   } else {
     html += `<div style="padding:20px;background:var(--surface2);border-radius:var(--radius);text-align:center;color:var(--text3);font-size:12px;border:1px dashed var(--border2)">
@@ -1346,10 +1391,16 @@ function showDetail(id) {
     html += `<div class="detail-section">
       <div class="detail-section-title"><i class="ti ti-id"></i> Bukti Pengambilan</div>`;
     if (i.claimPhotoUrl) {
-      html += `<img src="${i.claimPhotoUrl}"
-        onclick="openPhotoModal('${i.claimPhotoUrl}','Bukti Pengambilan — ${i.claimName||i.itemType}')"
+      html += `<img
+        data-src="${i.claimPhotoUrl.replace(/"/g,'&quot;')}"
+        data-caption="Bukti Pengambilan — ${(i.claimName||i.itemType).replace(/"/g,'&quot;')}"
+        onclick="openPhotoModalFromEl(this)"
         title="Klik untuk perbesar"
-        style="max-width:100%;max-height:240px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:zoom-in;display:block"/>
+        onerror="this.style.display='none';this.nextElementSibling.style.display='block'"
+        style="max-width:100%;max-height:240px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:zoom-in;display:block"
+        src="${i.claimPhotoUrl.replace(/"/g,'&quot;')}"/>
+        <div style="display:none;padding:20px;background:var(--surface2);border-radius:var(--radius);text-align:center;color:var(--text3);font-size:12px;border:1px dashed var(--border2)">
+          <i class="ti ti-photo-off" style="font-size:24px;display:block;margin-bottom:4px;opacity:.4"></i>Foto tidak dapat dimuat</div>
         <div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="ti ti-zoom-in" style="font-size:11px"></i> Klik foto untuk perbesar</div>`;
     } else {
       html += `<div style="padding:20px;background:var(--surface2);border-radius:var(--radius);text-align:center;color:var(--text3);font-size:12px;border:1px dashed var(--border2)">
@@ -1360,11 +1411,25 @@ function showDetail(id) {
 
   document.getElementById('detailContent').innerHTML = html;
 
-  // Action buttons — admin-only Claimed/Expired buttons
+  // Action buttons — Tutup always visible
+  // Edit + Delete: admin only, all statuses
+  // Claimed/Expired: admin only, Ongoing only
   let acts = `<button class="btn" onclick="closeModal('detailModal')">Tutup</button>`;
-  if (i.status==='Ongoing' && currentUser) acts +=
-    `<button class="btn btn-primary admin-action" onclick="closeModal('detailModal');openClaim(${i.id})"><i class="ti ti-check"></i> Claimed</button>
-     <button class="btn btn-danger admin-action" onclick="closeModal('detailModal');openExpire(${i.id})"><i class="ti ti-alert-circle"></i> Expired</button>`;
+  if (currentUser) {
+    acts += `<button class="btn admin-action" onclick="openEdit(${i.id})" title="Edit data barang">
+               <i class="ti ti-pencil"></i> Edit
+             </button>
+             <button class="btn btn-danger admin-action" onclick="openDelete(${i.id})" title="Hapus barang">
+               <i class="ti ti-trash"></i> Hapus
+             </button>`;
+    if (i.status==='Ongoing') acts +=
+      `<button class="btn btn-primary admin-action" onclick="closeModal('detailModal');openClaim(${i.id})">
+         <i class="ti ti-check"></i> Claimed
+       </button>
+       <button class="btn btn-danger admin-action" onclick="closeModal('detailModal');openExpire(${i.id})">
+         <i class="ti ti-alert-circle"></i> Expired
+       </button>`;
+  }
   document.getElementById('detailActions').innerHTML = acts;
   document.getElementById('detailModal').classList.add('open');
 }
@@ -1376,6 +1441,112 @@ function openPhotoModal(url, caption) {
   document.getElementById('photoModalImg').src = url;
   document.getElementById('photoModalCaption').textContent = caption || '';
   document.getElementById('photoModal').classList.add('open');
+}
+// Called from img element — reads url from data attribute (safe for special chars)
+function openPhotoModalFromEl(el) {
+  openPhotoModal(el.dataset.src, el.dataset.caption);
+}
+
+// ══════════════════════════════════════════════
+//  EDIT ITEM
+// ══════════════════════════════════════════════
+function onEditCategoryChange() {
+  const cat = document.getElementById('eCategory').value;
+  const sel = document.getElementById('eItemType');
+  sel.innerHTML = '<option value="">— Pilih jenis —</option>';
+  if (cat && ITEM_TYPES[cat]) {
+    ITEM_TYPES[cat].filter(t=>t!=='Lainnya...').forEach(t=>{
+      const o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);
+    });
+    // Also add current value in case it's a custom type not in current list
+    const currentVal = document.getElementById('eItemType').value;
+    if (currentVal && !Array.from(sel.options).find(o=>o.value===currentVal)) {
+      const o=document.createElement('option');o.value=currentVal;o.textContent=currentVal;sel.appendChild(o);
+    }
+  }
+}
+
+function openEdit(id) {
+  const i = cachedItems.find(x=>x.id===id); if (!i) return;
+  document.getElementById('eDate').value     = i.date || '';
+  document.getElementById('eFinder').value   = i.finder || '';
+  document.getElementById('eDept').value     = i.dept || '';
+  document.getElementById('eLocation').value = i.location || '';
+  document.getElementById('eDesc').value     = i.desc || '';
+  document.getElementById('eRemark').value   = i.remark || '';
+  document.getElementById('eCategory').value = i.category || '';
+  onEditCategoryChange();
+  // Set jenis — may be custom value not in select yet
+  const eSel = document.getElementById('eItemType');
+  if (i.itemType && !Array.from(eSel.options).find(o=>o.value===i.itemType)) {
+    const o=document.createElement('option');o.value=i.itemType;o.textContent=i.itemType;eSel.appendChild(o);
+  }
+  eSel.value = i.itemType || '';
+  document.getElementById('editModal').dataset.editId = id;
+  closeModal('detailModal');
+  document.getElementById('editModal').classList.add('open');
+}
+
+async function confirmEdit() {
+  if (!currentUser) { toast('Login sebagai Admin','error'); return; }
+  const id       = parseInt(document.getElementById('editModal').dataset.editId);
+  const date     = document.getElementById('eDate').value;
+  const finder   = document.getElementById('eFinder').value.trim();
+  const dept     = document.getElementById('eDept').value;
+  const cat      = document.getElementById('eCategory').value;
+  const itemType = document.getElementById('eItemType').value;
+  const location = document.getElementById('eLocation').value.trim();
+  const desc     = document.getElementById('eDesc').value.trim();
+  if (!date||!finder||!dept||!cat||!itemType||!location||!desc) {
+    toast('Lengkapi semua field wajib (*)','error'); return;
+  }
+  const expiryDate = addMonths(date, STORAGE_MONTHS[cat] || 3);
+  showLoading(true);
+  const { error } = await db.from('lost_found_items').update({
+    date, finder, dept,
+    category:cat, item_type:itemType,
+    description:desc, location,
+    remark:document.getElementById('eRemark').value,
+    expiry_date:expiryDate,
+  }).eq('id', id);
+  showLoading(false);
+  if (error) { toast('Gagal menyimpan: '+error.message,'error'); return; }
+  toast('Data berhasil diperbarui ✓');
+  closeModal('editModal');
+  // Reload current active page
+  const activePage = document.querySelector('.page.active');
+  if (activePage) {
+    const pageId = activePage.id.replace('page-','');
+    await nav(pageId);
+  }
+}
+
+// ══════════════════════════════════════════════
+//  DELETE ITEM
+// ══════════════════════════════════════════════
+function openDelete(id) {
+  const i = cachedItems.find(x=>x.id===id); if (!i) return;
+  document.getElementById('deleteConfirmText').innerHTML =
+    `Anda akan menghapus barang berikut:<br><br>
+     <strong>${i.itemType}</strong> — ${i.category}<br>
+     Ditemukan: ${fmt(i.date)} oleh ${i.finder}<br>
+     Lokasi: ${i.location}<br>
+     Status saat ini: ${i.status}`;
+  document.getElementById('deleteModal').dataset.deleteId = id;
+  closeModal('detailModal');
+  document.getElementById('deleteModal').classList.add('open');
+}
+
+async function confirmDelete() {
+  if (!currentUser) { toast('Login sebagai Admin','error'); return; }
+  const id = parseInt(document.getElementById('deleteModal').dataset.deleteId);
+  showLoading(true);
+  const { error } = await db.from('lost_found_items').delete().eq('id', id);
+  showLoading(false);
+  if (error) { toast('Gagal hapus: '+error.message,'error'); return; }
+  toast('Barang berhasil dihapus ✓');
+  closeModal('deleteModal');
+  await nav('dashboard');
 }
 
 // ══════════════════════════════════════════════
@@ -1412,11 +1583,20 @@ async function confirmClaim() {
   let claimPhotoUrl = null;
   const claimFile = document.getElementById('claimPhotoInput').files[0];
   if (claimFile) {
-    const fname = `claim_${actionItemId}_${Date.now()}_${claimFile.name.replace(/\s/g,'_')}`;
-    const { error:upErr } = await db.storage.from('lost-and-found-photos').upload(fname, claimFile);
+    // Nama file aman untuk semua device (PC, Android, iPhone)
+    const ext = claimFile.name.split('.').pop().toLowerCase()
+      .replace('heic','jpg').replace('heif','jpg');
+    const fname = `claim_${actionItemId}_${Date.now()}.${ext}`;
+    const { error:upErr } = await db.storage
+      .from('lost-and-found-photos')
+      .upload(fname, claimFile, { contentType: claimFile.type || 'image/jpeg' });
     if (!upErr) {
-      const { data:urlData } = db.storage.from('lost-and-found-photos').getPublicUrl(fname);
+      const { data:urlData } = db.storage
+        .from('lost-and-found-photos')
+        .getPublicUrl(fname);
       claimPhotoUrl = urlData.publicUrl;
+    } else {
+      toast('Foto bukti gagal diupload: ' + upErr.message, 'error');
     }
   }
   const updateData = {
