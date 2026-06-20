@@ -1154,9 +1154,9 @@ async function saveItem() {
   const photoFile = document.getElementById('fPhoto').files[0];
   if (photoFile) {
     const fname = `item_${Date.now()}_${photoFile.name.replace(/\s/g,'_')}`;
-    const { error:upErr } = await db.storage.from('lost-found-photos').upload(fname, photoFile);
+    const { error:upErr } = await db.storage.from('lost-and-found-photos').upload(fname, photoFile);
     if (!upErr) {
-      const { data:urlData } = db.storage.from('lost-found-photos').getPublicUrl(fname);
+      const { data:urlData } = db.storage.from('lost-and-found-photos').getPublicUrl(fname);
       photoUrl = urlData.publicUrl;
     }
   }
@@ -1413,9 +1413,9 @@ async function confirmClaim() {
   const claimFile = document.getElementById('claimPhotoInput').files[0];
   if (claimFile) {
     const fname = `claim_${actionItemId}_${Date.now()}_${claimFile.name.replace(/\s/g,'_')}`;
-    const { error:upErr } = await db.storage.from('lost-found-photos').upload(fname, claimFile);
+    const { error:upErr } = await db.storage.from('lost-and-found-photos').upload(fname, claimFile);
     if (!upErr) {
-      const { data:urlData } = db.storage.from('lost-found-photos').getPublicUrl(fname);
+      const { data:urlData } = db.storage.from('lost-and-found-photos').getPublicUrl(fname);
       claimPhotoUrl = urlData.publicUrl;
     }
   }
