@@ -741,6 +741,87 @@ body.is-public .admin-action{display:none!important}
   </div>
 </div>
 
+<!-- EDIT ITEM MODAL -->
+<div class="modal-bg" id="editModal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <span class="modal-title"><i class="ti ti-pencil" style="color:var(--green)"></i> Edit Data Barang</span>
+      <button class="btn btn-icon" onclick="closeModal('editModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Tanggal ditemukan <span class="req">*</span></label>
+        <input type="date" id="eDate"/>
+      </div>
+      <div class="form-group">
+        <label>Nama penemu <span class="req">*</span></label>
+        <input type="text" id="eFinder" placeholder="Nama lengkap penemu..."/>
+      </div>
+      <div class="form-group">
+        <label>Departemen <span class="req">*</span></label>
+        <select id="eDept">
+          <option value="">— Pilih departemen —</option>
+          <option>Housekeeping</option><option>F&amp;B</option><option>Stater</option>
+          <option>Proshop</option><option>Front Office (FO)</option><option>Marketing</option>
+          <option>Security</option><option>Porter</option><option>Guest</option>
+          <option>DW</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Lokasi ditemukan <span class="req">*</span></label>
+        <input type="text" id="eLocation" placeholder="Contoh: Fairway Hole 7, Locker Room A..."/>
+      </div>
+      <div class="form-group">
+        <label>Kategori <span class="req">*</span></label>
+        <select id="eCategory" onchange="onEditCategoryChange()">
+          <option value="">— Pilih kategori —</option>
+          <option value="Pakaian">Pakaian</option>
+          <option value="Alas Kaki">Alas Kaki</option>
+          <option value="Elektronik & Berharga">Elektronik &amp; Berharga</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Jenis barang <span class="req">*</span></label>
+        <select id="eItemType">
+          <option value="">— Pilih kategori dulu —</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Deskripsi barang <span class="req">*</span></label>
+        <textarea id="eDesc" rows="3" placeholder="Warna, merek, ukuran, ciri khusus, kondisi barang..."></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Remark (opsional)</label>
+        <textarea id="eRemark" rows="2" placeholder="Catatan tambahan..."></textarea>
+      </div>
+    </div>
+    <div style="margin-top:10px;padding:10px 14px;background:var(--amber-lt);border-radius:var(--radius);font-size:12px;color:var(--amber-tx);border:1px solid #EDD59F">
+      <i class="ti ti-info-circle"></i> Tanggal kedaluwarsa akan dihitung ulang otomatis berdasarkan tanggal & kategori yang dipilih.
+    </div>
+    <div class="action-row">
+      <button class="btn" onclick="closeModal('editModal')">Batal</button>
+      <button class="btn btn-primary" onclick="confirmEdit()"><i class="ti ti-device-floppy"></i> Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-bg" id="deleteModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title"><i class="ti ti-trash" style="color:var(--red-tx)"></i> Hapus Barang</span>
+      <button class="btn btn-icon" onclick="closeModal('deleteModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="padding:14px;background:var(--red-lt);border-radius:var(--radius);border:1px solid #F09595;font-size:13px;color:var(--red-tx);margin-bottom:4px">
+      <i class="ti ti-alert-triangle"></i> <strong>Peringatan:</strong> Tindakan ini tidak dapat dibatalkan. Data barang akan dihapus permanen dari database.
+    </div>
+    <div id="deleteConfirmText" style="font-size:13px;color:var(--text2);padding:12px 4px;line-height:1.7"></div>
+    <div class="action-row">
+      <button class="btn" onclick="closeModal('deleteModal')">Batal</button>
+      <button class="btn btn-danger" onclick="confirmDelete()"><i class="ti ti-trash"></i> Ya, Hapus Permanen</button>
+    </div>
+  </div>
+</div>
 <!-- PHOTO VIEWER MODAL -->
 <div class="modal-bg" id="photoModal" style="background:rgba(0,0,0,.88);padding:12px">
   <div class="photo-modal-inner">
