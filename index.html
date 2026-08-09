@@ -621,7 +621,7 @@ body.is-public .admin-action{display:none!important}
             </div>
           </div>
           <div class="action-row">
-            <button class="btn btn-primary" onclick="addNewCategory()"><i class="ti ti-plus"></i> Tambah Kategori</button>
+            <button class="btn btn-primary" onclick="addNewS()"><i class="ti ti-plus"></i> Tambah Kategori</button>
           </div>
         </div>
       </div>
@@ -741,6 +741,34 @@ body.is-public .admin-action{display:none!important}
   </div>
 </div>
 
+<!-- EDIT CATEGORY MODAL (from settings) -->
+<div class="modal-bg" id="editCategoryModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title"><i class="ti ti-pencil"></i> Edit Kategori</span>
+      <button class="btn btn-icon" onclick="closeModal('editCategoryModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Nama kategori <span class="req">*</span></label>
+        <input type="text" id="editCatName" placeholder="Nama kategori"/>
+      </div>
+      <div class="form-group">
+        <label>Masa simpan (bulan) <span class="req">*</span></label>
+        <input type="number" id="editCatMonths" min="1" max="60"/>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin:6px 0 14px">
+      <i class="ti ti-info-circle"></i> Barang yang sudah ada tetap memakai nama kategori lama, tidak ikut berubah.
+    </div>
+    <div class="action-row">
+      <button class="btn" onclick="closeModal('editCategoryModal')">Batal</button>
+      <button class="btn btn-primary" onclick="confirmEditCategory()"><i class="ti ti-check"></i> Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT ITEM MODAL -->
 <!-- EDIT ITEM MODAL -->
 <div class="modal-bg" id="editModal">
   <div class="modal" style="max-width:580px">
@@ -1871,9 +1899,13 @@ function renderSettings() {
     return `<div class="card" style="margin-bottom:12px">
       <div class="card-title" style="justify-content:space-between">
         <span><i class="ti ti-tag"></i> ${cat}</span>
-        <span class="badge badge-neutral" style="font-size:11px">Masa simpan: ${label}</span>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="badge badge-neutral" style="font-size:11px">Masa simpan: ${label}</span>
+          <button class="btn btn-sm btn-icon" onclick="openEditCategory('${cat}')" title="Edit kategori"><i class="ti ti-pencil"></i></button>
+          <button class="btn btn-sm btn-icon btn-danger" onclick="deleteCategory('${cat}')" title="Hapus kategori"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>   
+   <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
         ${types.map(t=>{
           const isDefault = (DEFAULT_ITEM_TYPES[cat]||[]).includes(t);
           return `<div style="display:inline-flex;align-items:center;gap:4px;background:${isDefault?'var(--surface2)':'var(--green-lt)'};border:1px solid ${isDefault?'var(--border)':'#9FE1CB'};border-radius:20px;padding:3px 10px;font-size:12px">
@@ -1927,13 +1959,60 @@ function addNewCategory() {
   saveCustomTypes();
   document.getElementById('newCatName').value = '';
   document.getElementById('newCatMonths').value = '';
-  toast(`Kategori "${name}" ditambahkan ✓`);
+ toast(`Kategori "${name}" ditambahkan ✓`);
   renderSettings();
   // Refresh category dropdowns
   refreshCategoryDropdowns();
 }
-function refreshCategoryDropdowns() {
-  ['fCategory','ongoingCat','sCat'].forEach(id=>{
+
+let editCategoryTarget = null;
+
+function openEditCategory(cat) {
+  editCategoryTarget = cat;
+  document.getElementById('editCatName').value = cat;
+  document.getElementById('editCatMonths').value = STORAGE_MONTHS[cat] || '';
+  document.getElementById('editCategoryModal').classList.add('open');
+}
+
+function confirmEditCategory() {
+  const oldName = editCategoryTarget;
+  const newName = document.getElementById('editCatName').value.trim();
+  const months  = parseInt(document.getElementById('editCatMonths').value);
+  if (!newName) { toast('Ketik nama kategori','error'); return; }
+  if (!months || months < 1) { toast('Isi masa simpan (bulan)','error'); return; }
+  if (newName !== oldName && ITEM_TYPES[newName]) { toast('Nama kategori sudah dipakai','error'); return; }
+
+  if (newName !== oldName) {
+    ITEM_TYPES[newName] = ITEM_TYPES[oldName];
+    delete ITEM_TYPES[oldName];
+    STORAGE_MONTHS[newName] = months;
+    delete STORAGE_MONTHS[oldName];
+  } else {
+    STORAGE_MONTHS[oldName] = months;
+  }
+  saveCustomTypes();
+  closeModal('editCategoryModal');
+  toast(`Kategori "${newName}" diperbarui ✓`);
+  renderSettings();
+  refreshCategoryDropdowns();
+}
+
+function deleteCategory(cat) {
+  const usedCount = cachedItems.filter(i => i.category === cat).length;
+  if (usedCount > 0) {
+    toast(`Tidak bisa dihapus — ${usedCount} barang masih memakai kategori "${cat}". Hapus/pindahkan barang itu dulu.`, 'error');
+    return;
+  }
+  if (!confirm(`Hapus kategori "${cat}"? Semua jenis barang di dalamnya ikut terhapus.`)) return;
+  delete ITEM_TYPES[cat];
+  delete STORAGE_MONTHS[cat];
+  saveCustomTypes();
+  toast(`Kategori "${cat}" dihapus ✓`);
+  renderSettings();
+  refreshCategoryDropdowns();
+}
+
+function refreshCategoryDropdowns() {  ['fCategory','ongoingCat','sCat'].forEach(id=>{
     const sel = document.getElementById(id);
     const cur = sel.value;
     // Get all options except first (placeholder)
