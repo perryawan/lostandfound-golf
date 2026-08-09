@@ -768,6 +768,33 @@ body.is-public .admin-action{display:none!important}
   </div>
 </div>
 
+<!-- EDIT ITEM TYPE (SUBKATEGORI) MODAL (from settings) -->
+<div class="modal-bg" id="editTypeModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title"><i class="ti ti-pencil"></i> Edit Jenis Barang</span>
+      <button class="btn btn-icon" onclick="closeModal('editTypeModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Nama jenis barang <span class="req">*</span></label>
+        <input type="text" id="editTypeName" placeholder="Nama jenis barang"/>
+      </div>
+      <div class="form-group">
+        <label>Masa simpan (bulan) <span class="req">*</span></label>
+        <input type="number" id="editTypeMonths" min="1" max="60"/>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin:6px 0 14px">
+      <i class="ti ti-info-circle"></i> Barang yang sudah ada tetap memakai nama jenis lama, tidak ikut berubah.
+    </div>
+    <div class="action-row">
+      <button class="btn" onclick="closeModal('editTypeModal')">Batal</button>
+      <button class="btn btn-primary" onclick="confirmEditType()"><i class="ti ti-check"></i> Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
 <!-- EDIT ITEM MODAL -->
 <!-- EDIT ITEM MODAL -->
 <div class="modal-bg" id="editModal">
@@ -925,6 +952,14 @@ let cachedItems = [];
 let actionItemId = null;
 let addTypeTargetCat = null;
 
+// Per-subkategori (jenis barang) masa simpan override — ADDITIVE, tidak mengganti STORAGE_MONTHS
+// Struktur: { 'Elektronik & Berharga': { 'Handphone': 12, 'Range Finder': 6 } }
+let TYPE_MONTHS = {};
+// Tracking rename untuk jenis barang default (bawaan sistem), supaya rename tidak hilang saat reload
+// Struktur: { 'Elektronik & Berharga': { 'Handphone': 'Smartphone' } }  -> key = nama default asli
+let TYPE_RENAMES = {};
+let editTypeTarget = null; // { cat, oldName } — dipakai openEditType/confirmEditType
+
 // ══════════════════════════════════════════════
 //  AUTH STATE
 // ══════════════════════════════════════════════
@@ -1000,35 +1035,66 @@ function loadCustomTypes() {
     const saved = JSON.parse(localStorage.getItem('lf_custom_types') || '{}');
     ITEM_TYPES = {};
     STORAGE_MONTHS = { ...DEFAULT_STORAGE_MONTHS };
+    TYPE_MONTHS = {};
+    TYPE_RENAMES = {};
     // Merge defaults + custom
     const allCats = new Set([...Object.keys(DEFAULT_ITEM_TYPES), ...Object.keys(saved)]);
     allCats.forEach(cat => {
-      const defaults = DEFAULT_ITEM_TYPES[cat] || [];
+      if (saved[cat]?.typeRenames) TYPE_RENAMES[cat] = saved[cat].typeRenames;
       const customs  = saved[cat]?.types || [];
-      // Remove 'Lainnya...' from defaults, append customs, add 'Lainnya...' at end
-      const base = defaults.filter(t => t !== 'Lainnya...');
+      // Remove 'Lainnya...' from defaults (applying any rename), append customs, add 'Lainnya...' at end
+      const base = getEffectiveDefaultTypes(cat);
       const merged = [...new Set([...base, ...customs])];
       ITEM_TYPES[cat] = [...merged, 'Lainnya...'];
       if (saved[cat]?.months) STORAGE_MONTHS[cat] = saved[cat].months;
+      if (saved[cat]?.typeMonths) TYPE_MONTHS[cat] = saved[cat].typeMonths;
     });
   } catch(e) {
     ITEM_TYPES = { ...DEFAULT_ITEM_TYPES };
     STORAGE_MONTHS = { ...DEFAULT_STORAGE_MONTHS };
+    TYPE_MONTHS = {};
+    TYPE_RENAMES = {};
   }
 }
 
 function saveCustomTypes() {
   const data = {};
   Object.keys(ITEM_TYPES).forEach(cat => {
-    const base = (DEFAULT_ITEM_TYPES[cat] || []).filter(t => t !== 'Lainnya...');
+    const base = getEffectiveDefaultTypes(cat);
     const all  = ITEM_TYPES[cat].filter(t => t !== 'Lainnya...');
     const customs = all.filter(t => !base.includes(t));
     data[cat] = {
       types: customs,
-      months: STORAGE_MONTHS[cat]
+      months: STORAGE_MONTHS[cat],
+      typeMonths: TYPE_MONTHS[cat] || {},
+      typeRenames: TYPE_RENAMES[cat] || {}
     };
   });
   localStorage.setItem('lf_custom_types', JSON.stringify(data));
+}
+
+// ══════════════════════════════════════════════
+//  PER-SUBKATEGORI MASA SIMPAN — HELPER (ADDITIVE)
+// ══════════════════════════════════════════════
+// Nama-nama default sebuah kategori, dengan rename (jika ada) sudah diterapkan
+function getEffectiveDefaultTypes(cat) {
+  const defaults = (DEFAULT_ITEM_TYPES[cat] || []).filter(t => t !== 'Lainnya...');
+  const renames  = TYPE_RENAMES[cat] || {};
+  return defaults.map(t => renames[t] || t);
+}
+// Cari nama default ASLI (raw) yang saat ini tampil sebagai `currentName` (null jika bukan tipe default/bawaan)
+function findDefaultKeyForCurrentName(cat, currentName) {
+  const renames = TYPE_RENAMES[cat] || {};
+  const rawDefaults = (DEFAULT_ITEM_TYPES[cat] || []).filter(t => t !== 'Lainnya...');
+  for (const raw of rawDefaults) {
+    if ((renames[raw] || raw) === currentName) return raw;
+  }
+  return null;
+}
+// Masa simpan efektif untuk sebuah jenis barang: pakai override per-jenis jika ada, kalau tidak fallback ke masa simpan kategori
+function getTypeMonths(cat, type) {
+  const override = TYPE_MONTHS[cat]?.[type];
+  return (override && override >= 1) ? override : STORAGE_MONTHS[cat];
 }
 
 // ══════════════════════════════════════════════
@@ -1240,7 +1306,8 @@ function saveCustomType() {
 function updateExpiryPreview() {
   const cat  = document.getElementById('fCategory').value;
   const date = document.getElementById('fDate').value;
-  const m    = STORAGE_MONTHS[cat];
+  const type = document.getElementById('fItemType').value;
+  const m    = (type && type !== 'Lainnya...') ? getTypeMonths(cat, type) : STORAGE_MONTHS[cat];
   const prev = document.getElementById('expiryPreview');
   if (cat && date && m) {
     const exp = addMonths(date, m);
@@ -1290,7 +1357,7 @@ async function saveItem() {
     toast('Lengkapi semua field wajib (*)','error'); return;
   }
   if (itemType === 'Lainnya...') { toast('Simpan jenis barang baru dulu','error'); return; }
-  const expiryDate = addMonths(date, STORAGE_MONTHS[cat]);
+  const expiryDate = addMonths(date, getTypeMonths(cat, itemType));
   showLoading(true);
   let photoUrl = null;
   const photoFile = document.getElementById('fPhoto').files[0];
@@ -1612,7 +1679,7 @@ async function confirmEdit() {
   if (!date||!finder||!dept||!cat||!itemType||!location||!desc) {
     toast('Lengkapi semua field wajib (*)','error'); return;
   }
-  const expiryDate = addMonths(date, STORAGE_MONTHS[cat] || 3);
+  const expiryDate = addMonths(date, getTypeMonths(cat, itemType) || 3);
   showLoading(true);
   const { error } = await db.from('lost_found_items').update({
     date, finder, dept,
@@ -1907,9 +1974,13 @@ function renderSettings() {
       </div>   
    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
         ${types.map(t=>{
-          const isDefault = (DEFAULT_ITEM_TYPES[cat]||[]).includes(t);
+          const isDefault = findDefaultKeyForCurrentName(cat, t) !== null;
+          const tm = getTypeMonths(cat, t);
+          const tmLabel = tm===1?'1 bln':tm<12?`${tm} bln`:`${tm/12===1?'1 th':`${tm/12} th`}`;
           return `<div style="display:inline-flex;align-items:center;gap:4px;background:${isDefault?'var(--surface2)':'var(--green-lt)'};border:1px solid ${isDefault?'var(--border)':'#9FE1CB'};border-radius:20px;padding:3px 10px;font-size:12px">
             <span>${t}</span>
+            <small style="opacity:.6;font-size:10px">(${tmLabel})</small>
+            <button onclick="openEditType('${cat}','${t}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0 0 0 2px" title="Edit"><i class="ti ti-pencil"></i></button>
             ${!isDefault?`<button onclick="removeType('${cat}','${t}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 2px" title="Hapus">×</button>`:''}
           </div>`;
         }).join('')}
@@ -1943,9 +2014,56 @@ function confirmAddType() {
 function removeType(cat, type) {
   if (!confirm(`Hapus jenis "${type}" dari ${cat}?`)) return;
   ITEM_TYPES[cat] = ITEM_TYPES[cat].filter(t=>t!==type);
+  if (TYPE_MONTHS[cat]) delete TYPE_MONTHS[cat][type];
   saveCustomTypes();
   toast(`"${type}" dihapus ✓`);
   renderSettings();
+  populateSearchTypes();
+}
+
+// ══════════════════════════════════════════════
+//  EDIT SUBKATEGORI (JENIS BARANG) + MASA SIMPAN PER JENIS
+// ══════════════════════════════════════════════
+function openEditType(cat, type) {
+  editTypeTarget = { cat, oldName: type };
+  document.getElementById('editTypeName').value = type;
+  document.getElementById('editTypeMonths').value = getTypeMonths(cat, type) || '';
+  document.getElementById('editTypeModal').classList.add('open');
+}
+
+function confirmEditType() {
+  if (!editTypeTarget) return;
+  const { cat, oldName } = editTypeTarget;
+  const newName = document.getElementById('editTypeName').value.trim();
+  const months  = parseInt(document.getElementById('editTypeMonths').value);
+  if (!newName) { toast('Ketik nama jenis barang','error'); return; }
+  if (!months || months < 1) { toast('Isi masa simpan (bulan)','error'); return; }
+  if (newName !== oldName && ITEM_TYPES[cat].includes(newName)) {
+    toast('Nama jenis barang sudah dipakai','error'); return;
+  }
+
+  const defaultKey = findDefaultKeyForCurrentName(cat, oldName);
+  if (defaultKey && newName !== oldName) {
+    // Jenis default (bawaan) — simpan sebagai rename, bukan menghapus/membuat baru
+    TYPE_RENAMES[cat] = { ...(TYPE_RENAMES[cat]||{}), [defaultKey]: newName };
+  }
+
+  // Update nama di array pada posisi yang sama (UPDATE, bukan delete+insert)
+  const idx = ITEM_TYPES[cat].indexOf(oldName);
+  if (idx > -1) ITEM_TYPES[cat][idx] = newName;
+
+  // Pindahkan override masa simpan ke nama baru jika nama berubah
+  if (TYPE_MONTHS[cat] && oldName in TYPE_MONTHS[cat] && newName !== oldName) {
+    delete TYPE_MONTHS[cat][oldName];
+  }
+  TYPE_MONTHS[cat] = { ...(TYPE_MONTHS[cat]||{}), [newName]: months };
+
+  saveCustomTypes();
+  closeModal('editTypeModal');
+  editTypeTarget = null;
+  toast(`Jenis "${newName}" diperbarui ✓`);
+  renderSettings();
+  refreshCategoryDropdowns();
   populateSearchTypes();
 }
 function addNewCategory() {
@@ -1987,6 +2105,8 @@ function confirmEditCategory() {
     delete ITEM_TYPES[oldName];
     STORAGE_MONTHS[newName] = months;
     delete STORAGE_MONTHS[oldName];
+    if (TYPE_MONTHS[oldName]) { TYPE_MONTHS[newName] = TYPE_MONTHS[oldName]; delete TYPE_MONTHS[oldName]; }
+    if (TYPE_RENAMES[oldName]) { TYPE_RENAMES[newName] = TYPE_RENAMES[oldName]; delete TYPE_RENAMES[oldName]; }
   } else {
     STORAGE_MONTHS[oldName] = months;
   }
@@ -2006,6 +2126,8 @@ function deleteCategory(cat) {
   if (!confirm(`Hapus kategori "${cat}"? Semua jenis barang di dalamnya ikut terhapus.`)) return;
   delete ITEM_TYPES[cat];
   delete STORAGE_MONTHS[cat];
+  delete TYPE_MONTHS[cat];
+  delete TYPE_RENAMES[cat];
   saveCustomTypes();
   toast(`Kategori "${cat}" dihapus ✓`);
   renderSettings();
