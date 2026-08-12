@@ -398,9 +398,9 @@ body.is-public .admin-action{display:none!important}
               <label>Kategori <span class="req">*</span></label>
               <select id="fCategory" onchange="onCategoryChange()">
                 <option value="">— Pilih kategori —</option>
-                <option value="Pakaian">Pakaian (3 bulan)</option>
-                <option value="Alas Kaki">Alas Kaki (6 bulan)</option>
-                <option value="Elektronik & Berharga">Elektronik &amp; Berharga (1 tahun)</option>
+                <option value="Pakaian">Pakaian</option>
+                <option value="Alas Kaki">Alas Kaki</option>
+                <option value="Elektronik & Berharga">Elektronik &amp; Berharga</option>
               </select>
             </div>
             <div class="form-group">
@@ -2159,8 +2159,7 @@ function refreshCategoryDropdowns() {  ['fCategory','ongoingCat','sCat'].forEach
     Object.keys(ITEM_TYPES).forEach(cat=>{
       const o=document.createElement('option');
       o.value=cat;
-      const m=STORAGE_MONTHS[cat];
-      o.textContent=id==='fCategory'?`${cat} (${m<12?m+' bulan':m/12+' tahun'})`:cat;
+      o.textContent=cat;
       sel.appendChild(o);
     });
     sel.value=cur;
