@@ -1031,40 +1031,36 @@ async function doLogout() {
 // ══════════════════════════════════════════════
 //  CUSTOM TYPES — stored in localStorage
 // ══════════════════════════════════════════════
-function loadCustomTypes() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('lf_custom_types') || '{}');
-    ITEM_TYPES = {};
-    STORAGE_MONTHS = {};
-    TYPE_MONTHS = {};
-    TYPE_RENAMES = {};
-    CATEGORY_RENAMES = saved.__categoryRenames || {};
-    // Merge defaults (dengan rename kategori diterapkan) + custom
-    const effectiveDefaultCatNames = Object.keys(DEFAULT_ITEM_TYPES).map(c => CATEGORY_RENAMES[c] || c);
-    const savedCatKeys = Object.keys(saved).filter(k => k !== '__categoryRenames');
-    const allCats = new Set([...effectiveDefaultCatNames, ...savedCatKeys]);
-    allCats.forEach(cat => {
-      if (saved[cat]?.typeRenames) TYPE_RENAMES[cat] = saved[cat].typeRenames;
-      const customs  = saved[cat]?.types || [];
-      // Remove 'Lainnya...' from defaults (applying any rename), append customs, add 'Lainnya...' at end
-      const base = getEffectiveDefaultTypes(cat);
-      const merged = [...new Set([...base, ...customs])];
-      ITEM_TYPES[cat] = [...merged, 'Lainnya...'];
-      const rawKey = findRawDefaultCategoryKey(cat);
-      const defaultMonths = rawKey ? DEFAULT_STORAGE_MONTHS[rawKey] : undefined;
-      STORAGE_MONTHS[cat] = saved[cat]?.months ?? defaultMonths ?? 3;
-      if (saved[cat]?.typeMonths) TYPE_MONTHS[cat] = saved[cat].typeMonths;
-    });
-  } catch(e) {
-    ITEM_TYPES = { ...DEFAULT_ITEM_TYPES };
-    STORAGE_MONTHS = { ...DEFAULT_STORAGE_MONTHS };
-    TYPE_MONTHS = {};
-    TYPE_RENAMES = {};
-    CATEGORY_RENAMES = {};
-  }
+function applyCustomTypesFromObject(saved) {
+  ITEM_TYPES = {};
+  STORAGE_MONTHS = {};
+  TYPE_MONTHS = {};
+  TYPE_RENAMES = {};
+  CATEGORY_RENAMES = saved.__categoryRenames || {};
+  // Merge defaults (dengan rename kategori diterapkan) + custom
+  const effectiveDefaultCatNames = Object.keys(DEFAULT_ITEM_TYPES).map(c => CATEGORY_RENAMES[c] || c);
+  const savedCatKeys = Object.keys(saved).filter(k => k !== '__categoryRenames');
+  const allCats = new Set([...effectiveDefaultCatNames, ...savedCatKeys]);
+  allCats.forEach(cat => {
+    if (saved[cat]?.typeRenames) TYPE_RENAMES[cat] = saved[cat].typeRenames;
+    const customs  = saved[cat]?.types || [];
+    // Remove 'Lainnya...' from defaults (applying any rename), append customs, add 'Lainnya...' at end
+    const base = getEffectiveDefaultTypes(cat);
+    const merged = [...new Set([...base, ...customs])];
+    ITEM_TYPES[cat] = [...merged, 'Lainnya...'];
+    const rawKey = findRawDefaultCategoryKey(cat);
+    const defaultMonths = rawKey ? DEFAULT_STORAGE_MONTHS[rawKey] : undefined;
+    STORAGE_MONTHS[cat] = saved[cat]?.months ?? defaultMonths ?? 3;
+    if (saved[cat]?.typeMonths) TYPE_MONTHS[cat] = saved[cat].typeMonths;
+  });
 }
 
-function saveCustomTypes() {
+function readLocalCustomTypes() {
+  try { return JSON.parse(localStorage.getItem('lf_custom_types') || '{}'); }
+  catch(e) { return {}; }
+}
+
+function buildCustomTypesObject() {
   const data = {};
   Object.keys(ITEM_TYPES).forEach(cat => {
     const base = getEffectiveDefaultTypes(cat);
@@ -1078,7 +1074,54 @@ function saveCustomTypes() {
     };
   });
   data.__categoryRenames = CATEGORY_RENAMES;
+  return data;
+}
+
+// Load: pakai localStorage dulu (instan, tetap jalan walau offline),
+// lalu sinkron dengan Supabase (sumber data yang sama untuk semua device).
+async function loadCustomTypes() {
+  // 1) Muat dari localStorage dulu supaya app langsung bisa dipakai
+  try {
+    applyCustomTypesFromObject(readLocalCustomTypes());
+  } catch(e) {
+    ITEM_TYPES = { ...DEFAULT_ITEM_TYPES };
+    STORAGE_MONTHS = { ...DEFAULT_STORAGE_MONTHS };
+    TYPE_MONTHS = {};
+    TYPE_RENAMES = {};
+    CATEGORY_RENAMES = {};
+  }
+
+  // 2) Sinkron dengan Supabase — ini yang membuat semua device (desktop & mobile) sama
+  try {
+    const { data, error } = await db.from('app_settings').select('value').eq('key','category_config').maybeSingle();
+    if (error) throw error;
+    if (data && data.value) {
+      // Supabase punya data — pakai ini sebagai sumber kebenaran, timpa cache lokal
+      applyCustomTypesFromObject(data.value);
+      localStorage.setItem('lf_custom_types', JSON.stringify(data.value));
+    } else {
+      // Supabase masih kosong (migrasi pertama kali) — upload data lokal yang ada sekarang
+      const local = readLocalCustomTypes();
+      if (Object.keys(local).length > 0) {
+        await db.from('app_settings').upsert({ key: 'category_config', value: local });
+      }
+    }
+  } catch(e) {
+    console.warn('Gagal sinkron kategori dari Supabase, pakai data lokal device ini:', e);
+  }
+}
+
+// Save: simpan ke localStorage dulu (instan), lalu push ke Supabase (agar device lain ikut update)
+async function saveCustomTypes() {
+  const data = buildCustomTypesObject();
   localStorage.setItem('lf_custom_types', JSON.stringify(data));
+  try {
+    const { error } = await db.from('app_settings').upsert({ key: 'category_config', value: data, updated_at: new Date().toISOString() });
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Gagal simpan kategori ke Supabase (tersimpan di device ini saja):', e);
+    toast('Tersimpan di device ini, tapi gagal sync ke server. Cek koneksi internet.', 'error');
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -2170,7 +2213,7 @@ function refreshCategoryDropdowns() {  ['fCategory','ongoingCat','sCat'].forEach
 //  INIT
 // ══════════════════════════════════════════════
 (async()=>{
-  loadCustomTypes();
+  await loadCustomTypes();
   refreshCategoryDropdowns();
   populateSearchTypes();
 
