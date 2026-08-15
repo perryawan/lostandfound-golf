@@ -1395,12 +1395,19 @@ function fmt(s) {
   return new Date(s).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
 }
 function addMonths(dateStr, m) {
-  const d = new Date(dateStr); d.setMonth(d.getMonth()+m);
+  const original = new Date(dateStr);
+  const originalDay = original.getDate();
+  const d = new Date(dateStr);
+  d.setDate(1); // pindah ke tanggal 1 dulu supaya geser bulan tidak "meluber"
+  d.setMonth(d.getMonth() + m);
+  const daysInTargetMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(originalDay, daysInTargetMonth)); // clamp ke tanggal terakhir bulan tujuan kalau perlu
   return d.toISOString().split('T')[0];
 }
 function daysLeft(expiry) {
-  const now = new Date(); now.setHours(0,0,0,0);
-  return Math.round((new Date(expiry) - now) / 86400000);
+  const now = new Date();
+  const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  return Math.round((new Date(expiry) - new Date(todayStr)) / 86400000);
 }
 function statusBadge(s) {
   const label = s === 'Ongoing' ? 'In Storage' : s;
@@ -2323,6 +2330,11 @@ function confirmAddType() {
   populateSearchTypes();
 }
 function removeType(cat, type) {
+  const usedCount = cachedItems.filter(i => i.category === cat && i.itemType === type).length;
+  if (usedCount > 0) {
+    toast(`Tidak bisa dihapus — ${usedCount} barang masih memakai jenis "${type}". Hapus/pindahkan barang itu dulu.`, 'error');
+    return;
+  }
   if (!confirm(`Hapus jenis "${type}" dari ${cat}?`)) return;
   ITEM_TYPES[cat] = ITEM_TYPES[cat].filter(t=>t!==type);
   if (TYPE_MONTHS[cat]) delete TYPE_MONTHS[cat][type];
