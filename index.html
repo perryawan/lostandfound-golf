@@ -620,6 +620,28 @@ body.is-public .admin-action{display:none!important}
             <button class="btn btn-primary" onclick="addNewCategory()"><i class="ti ti-plus"></i> Tambah Kategori</button>
           </div>
         </div>
+
+        <div class="card" style="margin-top:24px;margin-bottom:12px">
+          <div style="font-size:12px;color:var(--text2);padding:8px;background:var(--amber-lt);border-radius:var(--radius);border:1px solid #EDD59F">
+            <i class="ti ti-info-circle"></i> Perubahan di sini akan langsung mempengaruhi pilihan departemen saat input data baru. Departemen yang sudah dipakai barang existing tidak bisa dihapus.
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-title"><i class="ti ti-building"></i> Kelola Departemen</div>
+          <div id="deptList"></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="ti ti-folder-plus"></i> Tambah Departemen Baru</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nama departemen <span class="req">*</span></label>
+              <input type="text" id="newDeptName" placeholder="Contoh: Engineering"/>
+            </div>
+          </div>
+          <div class="action-row">
+            <button class="btn btn-primary" onclick="addNewDepartment()"><i class="ti ti-plus"></i> Tambah Departemen</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -762,6 +784,29 @@ body.is-public .admin-action{display:none!important}
     <div class="action-row">
       <button class="btn" onclick="closeModal('editCategoryModal')">Batal</button>
       <button class="btn btn-primary" onclick="confirmEditCategory()"><i class="ti ti-check"></i> Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT DEPARTMENT MODAL -->
+<div class="modal-bg" id="editDeptModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title"><i class="ti ti-pencil"></i> Edit Departemen</span>
+      <button class="btn btn-icon" onclick="closeModal('editDeptModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Nama departemen <span class="req">*</span></label>
+        <input type="text" id="editDeptName" placeholder="Nama departemen"/>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin:6px 0 14px">
+      <i class="ti ti-info-circle"></i> Barang yang sudah ada tetap memakai nama departemen lama, tidak ikut berubah.
+    </div>
+    <div class="action-row">
+      <button class="btn" onclick="closeModal('editDeptModal')">Batal</button>
+      <button class="btn btn-primary" onclick="confirmEditDepartment()"><i class="ti ti-check"></i> Simpan Perubahan</button>
     </div>
   </div>
 </div>
@@ -942,6 +987,7 @@ const DEFAULT_ITEM_TYPES = {
   'Elektronik & Berharga': ['Handphone','Range Finder','Perhiasan','Jam tangan','Vape / Rokok elektrik','Lainnya...']
 };
 const DEFAULT_STORAGE_MONTHS = { 'Pakaian':3, 'Alas Kaki':6, 'Elektronik & Berharga':12 };
+const DEFAULT_DEPARTMENTS = ['Housekeeping','F&B','Stater','Proshop','Front Office (FO)','Marketing','Security','Porter','Guest','DW','Other'];
 
 // Runtime state — merged with localStorage custom types
 let ITEM_TYPES = {};
@@ -960,6 +1006,13 @@ let TYPE_RENAMES = {};
 // Struktur: { 'Elektronik & Berharga': 'Elektronik & Berharga Premium' }  -> key = nama kategori default asli
 let CATEGORY_RENAMES = {};
 let editTypeTarget = null; // { cat, oldName } — dipakai openEditType/confirmEditType
+
+// ══════════════════════════════════════════════
+//  DEPARTMENT — state (ADDITIVE, pola sama seperti Category/Type di atas)
+// ══════════════════════════════════════════════
+let DEPARTMENTS = [];
+let DEPARTMENT_RENAMES = {}; // { 'Housekeeping': 'Housekeeping Department' } -> key = nama default asli
+let editDeptTarget = null;   // nama department yang sedang diedit
 
 // ══════════════════════════════════════════════
 //  AUTH STATE
@@ -1125,6 +1178,158 @@ async function saveCustomTypes() {
 }
 
 // ══════════════════════════════════════════════
+//  DEPARTMENT MANAGEMENT (ADDITIVE) — pola & mekanisme sync sama persis
+//  dengan Category Management di atas, hanya lebih sederhana (tidak ada
+//  masa simpan). Reuse tabel app_settings yang sudah ada, key berbeda.
+// ══════════════════════════════════════════════
+function getEffectiveDefaultDepartments() {
+  return DEFAULT_DEPARTMENTS.map(d => DEPARTMENT_RENAMES[d] || d);
+}
+function findRawDefaultDeptKey(currentName) {
+  for (const raw of DEFAULT_DEPARTMENTS) {
+    if ((DEPARTMENT_RENAMES[raw] || raw) === currentName) return raw;
+  }
+  return null;
+}
+function applyDepartmentsFromObject(saved) {
+  DEPARTMENT_RENAMES = saved.renames || {};
+  const base = getEffectiveDefaultDepartments();
+  const customs = saved.customs || [];
+  DEPARTMENTS = [...new Set([...base, ...customs])];
+}
+function readLocalDepartments() {
+  try { return JSON.parse(localStorage.getItem('lf_departments') || '{}'); }
+  catch(e) { return {}; }
+}
+function buildDepartmentsObject() {
+  const base = getEffectiveDefaultDepartments();
+  const customs = DEPARTMENTS.filter(d => !base.includes(d));
+  return { customs, renames: DEPARTMENT_RENAMES };
+}
+async function loadDepartments() {
+  try {
+    applyDepartmentsFromObject(readLocalDepartments());
+  } catch(e) {
+    DEPARTMENTS = [...DEFAULT_DEPARTMENTS];
+    DEPARTMENT_RENAMES = {};
+  }
+  try {
+    const { data, error } = await db.from('app_settings').select('value').eq('key','department_config').maybeSingle();
+    if (error) throw error;
+    if (data && data.value) {
+      applyDepartmentsFromObject(data.value);
+      localStorage.setItem('lf_departments', JSON.stringify(data.value));
+    } else {
+      const local = readLocalDepartments();
+      if (Object.keys(local).length > 0) {
+        await db.from('app_settings').upsert({ key: 'department_config', value: local });
+      }
+    }
+  } catch(e) {
+    console.warn('Gagal sinkron departemen dari Supabase, pakai data lokal device ini:', e);
+  }
+}
+async function saveDepartments() {
+  const data = buildDepartmentsObject();
+  localStorage.setItem('lf_departments', JSON.stringify(data));
+  try {
+    const { error } = await db.from('app_settings').upsert({ key: 'department_config', value: data, updated_at: new Date().toISOString() });
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Gagal simpan departemen ke Supabase (tersimpan di device ini saja):', e);
+    toast('Tersimpan di device ini, tapi gagal sync ke server. Cek koneksi internet.', 'error');
+  }
+}
+
+function renderDepartmentSettings() {
+  const container = document.getElementById('deptList');
+  if (!container) return;
+  container.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">` +
+    DEPARTMENTS.map(d => {
+      const isDefault = findRawDefaultDeptKey(d) !== null;
+      return `<div style="display:inline-flex;align-items:center;gap:4px;background:${isDefault?'var(--surface2)':'var(--green-lt)'};border:1px solid ${isDefault?'var(--border)':'#9FE1CB'};border-radius:20px;padding:3px 10px;font-size:12px">
+        <span>${d}</span>
+        <button onclick="openEditDepartment('${d}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0 0 0 2px" title="Edit"><i class="ti ti-pencil"></i></button>
+        ${!isDefault?`<button onclick="deleteDepartment('${d}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 2px" title="Hapus">×</button>`:''}
+      </div>`;
+    }).join('') + `</div>`;
+}
+
+function addNewDepartment() {
+  const name = document.getElementById('newDeptName').value.trim();
+  if (!name) { toast('Ketik nama departemen','error'); return; }
+  if (DEPARTMENTS.includes(name)) { toast('Departemen sudah ada','error'); return; }
+  DEPARTMENTS.push(name);
+  saveDepartments();
+  document.getElementById('newDeptName').value = '';
+  toast(`Departemen "${name}" ditambahkan ✓`);
+  renderDepartmentSettings();
+  refreshDeptDropdowns();
+}
+
+function openEditDepartment(name) {
+  editDeptTarget = name;
+  document.getElementById('editDeptName').value = name;
+  document.getElementById('editDeptModal').classList.add('open');
+}
+
+function confirmEditDepartment() {
+  if (!editDeptTarget) return;
+  const oldName = editDeptTarget;
+  const newName = document.getElementById('editDeptName').value.trim();
+  if (!newName) { toast('Ketik nama departemen','error'); return; }
+  if (newName !== oldName && DEPARTMENTS.includes(newName)) { toast('Nama departemen sudah dipakai','error'); return; }
+
+  if (newName !== oldName) {
+    const rawKey = findRawDefaultDeptKey(oldName);
+    if (rawKey) {
+      // Departemen default (bawaan) — simpan sebagai rename, bukan hapus, supaya tidak muncul lagi saat reload
+      DEPARTMENT_RENAMES = { ...DEPARTMENT_RENAMES, [rawKey]: newName };
+    }
+    const idx = DEPARTMENTS.indexOf(oldName);
+    if (idx > -1) DEPARTMENTS[idx] = newName;
+  }
+  saveDepartments();
+  closeModal('editDeptModal');
+  editDeptTarget = null;
+  toast(`Departemen "${newName}" diperbarui ✓`);
+  renderDepartmentSettings();
+  refreshDeptDropdowns();
+}
+
+function deleteDepartment(name) {
+  const usedCount = cachedItems.filter(i => i.dept === name).length;
+  if (usedCount > 0) {
+    toast(`Tidak bisa dihapus — ${usedCount} barang masih memakai departemen "${name}". Hapus/pindahkan barang itu dulu.`, 'error');
+    return;
+  }
+  if (!confirm(`Hapus departemen "${name}"?`)) return;
+  DEPARTMENTS = DEPARTMENTS.filter(d => d !== name);
+  saveDepartments();
+  toast(`Departemen "${name}" dihapus ✓`);
+  renderDepartmentSettings();
+  refreshDeptDropdowns();
+}
+
+// Isi ulang 3 dropdown Departemen (Tambah Barang, Edit Barang, Filter Pencarian)
+// dari data DEPARTMENTS — reuse pola persis refreshCategoryDropdowns()
+function refreshDeptDropdowns() {
+  ['fDept','eDept','sDept'].forEach(id=>{
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    DEPARTMENTS.forEach(d=>{
+      const o = document.createElement('option');
+      o.value = d;
+      o.textContent = d;
+      sel.appendChild(o);
+    });
+    sel.value = cur;
+  });
+}
+
+// ══════════════════════════════════════════════
 //  PER-SUBKATEGORI MASA SIMPAN — HELPER (ADDITIVE)
 // ══════════════════════════════════════════════
 // Cari nama kategori default ASLI (raw) yang saat ini tampil sebagai `currentName` (null jika bukan kategori default/bawaan)
@@ -1264,7 +1469,7 @@ async function nav(page) {
   else if (page==='ongoing')  renderOngoing();
   else if (page==='claimed')  renderClaimed();
   else if (page==='expired')  renderExpired();
-  else if (page==='settings') renderSettings();
+  else if (page==='settings') { renderSettings(); renderDepartmentSettings(); }
 }
 
 // ══════════════════════════════════════════════
@@ -2216,6 +2421,8 @@ function refreshCategoryDropdowns() {  ['fCategory','ongoingCat','sCat'].forEach
   await loadCustomTypes();
   refreshCategoryDropdowns();
   populateSearchTypes();
+  await loadDepartments();
+  refreshDeptDropdowns();
 
   // Restore session (user stays logged in after refresh)
   const { data: { session } } = await db.auth.getSession();
