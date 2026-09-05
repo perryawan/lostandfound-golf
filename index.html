@@ -758,13 +758,25 @@ body.is-public .admin-action{display:none!important}
         <label for="returnedToFinder2" style="cursor:pointer;font-weight:500;font-size:13px">Dikembalikan kepada penemu</label>
       </div>
       <div class="form-group full">
+        <label>Foto bukti pengembalian <span style="color:var(--text3);font-weight:400">(opsional)</span></label>
+        <div class="photo-upload" onclick="document.getElementById('returnPhotoInput').click()" id="returnPhotoZone">
+          <i class="ti ti-camera-plus" style="font-size:22px;display:block;margin-bottom:5px"></i>
+          Klik untuk upload foto bukti
+          <input type="file" id="returnPhotoInput" accept="image/*" style="display:none" onchange="previewReturnPhoto(event)"/>
+        </div>
+        <div id="returnPhotoPreviewWrap" style="display:none;margin-top:8px" class="photo-preview-wrap">
+          <img id="returnPhotoPreview" alt="Bukti pengembalian"/>
+          <button class="photo-remove-btn" onclick="removeReturnPhoto()">×</button>
+        </div>
+      </div>
+      <div class="form-group full">
         <label>Remark (opsional)</label>
         <textarea id="returnRemark" rows="2" placeholder="Catatan pengembalian..."></textarea>
       </div>
     </div>
     <div class="action-row">
       <button class="btn" onclick="closeModal('returnToFinderModal')">Batal</button>
-      <button class="btn btn-primary" onclick="confirmReturnToFinder()"><i class="ti ti-check"></i> Konfirmasi</button>
+      <button class="btn btn-primary" onclick="confirmReturnToFinder()"><i class="ti ti-check"></i> Simpan</button>
     </div>
   </div>
 </div>
@@ -1459,7 +1471,7 @@ function mapItem(r) {
     claimRemark:r.claim_remark, claimPhotoUrl:r.claim_photo_url,
     expireDate:r.expire_date, returnedToFinder:r.returned_to_finder,
     expireRemark:r.expire_remark, expireAction:r.expire_action,
-    returnedDate:r.returned_date,
+    returnedDate:r.returned_date, returnPhotoUrl:r.return_photo_url,
     createdAt:r.created_at,
   };
 }
@@ -1933,6 +1945,24 @@ function showDetail(id) {
     html += '</div>';
   }
 
+  // Foto bukti pengembalian ke penemu — klik buka photo modal (pola sama persis dengan bukti klaim)
+  if (i.status === 'Expired' && i.returnPhotoUrl) {
+    html += `<div class="detail-section">
+      <div class="detail-section-title"><i class="ti ti-id"></i> Bukti Pengembalian</div>
+      <img
+        data-src="${i.returnPhotoUrl.replace(/"/g,'&quot;')}"
+        data-caption="Bukti Pengembalian — ${i.itemType.replace(/"/g,'&quot;')}"
+        onclick="openPhotoModalFromEl(this)"
+        title="Klik untuk perbesar"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='block'"
+        style="max-width:100%;max-height:240px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:zoom-in;display:block"
+        src="${i.returnPhotoUrl.replace(/"/g,'&quot;')}"/>
+      <div style="display:none;padding:20px;background:var(--surface2);border-radius:var(--radius);text-align:center;color:var(--text3);font-size:12px;border:1px dashed var(--border2)">
+        <i class="ti ti-photo-off" style="font-size:24px;display:block;margin-bottom:4px;opacity:.4"></i>Foto tidak dapat dimuat</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="ti ti-zoom-in" style="font-size:11px"></i> Klik foto untuk perbesar</div>
+    </div>`;
+  }
+
   document.getElementById('detailContent').innerHTML = html;
 
   // Action buttons — Tutup always visible
@@ -2095,6 +2125,21 @@ function removeClaimPhoto() {
   document.getElementById('claimPhotoPreviewWrap').style.display = 'none';
   document.getElementById('claimPhotoZone').style.display = 'block';
 }
+function previewReturnPhoto(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('returnPhotoPreview').src = ev.target.result;
+    document.getElementById('returnPhotoPreviewWrap').style.display = 'block';
+    document.getElementById('returnPhotoZone').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+function removeReturnPhoto() {
+  document.getElementById('returnPhotoInput').value = '';
+  document.getElementById('returnPhotoPreviewWrap').style.display = 'none';
+  document.getElementById('returnPhotoZone').style.display = 'block';
+}
 function openClaim(id) {
   actionItemId = id;
   document.getElementById('claimDate').value = new Date().toISOString().split('T')[0];
@@ -2172,8 +2217,9 @@ async function confirmExpire() {
 
 // ══════════════════════════════════════════════
 //  KEMBALIKAN KEPADA PENEMU (untuk barang berstatus Expired)
-//  Reuse field existing (returned_to_finder, expire_remark) + 1 field baru
-//  (returned_date). TIDAK menyentuh status/expire_date — barang tetap Expired.
+//  Reuse field existing (returned_to_finder, expire_remark) + field baru
+//  (returned_date, return_photo_url). TIDAK menyentuh status/expire_date —
+//  barang tetap Expired. Upload foto reuse bucket & pola persis confirmClaim().
 // ══════════════════════════════════════════════
 function openReturnToFinder(id) {
   actionItemId = id;
@@ -2181,16 +2227,47 @@ function openReturnToFinder(id) {
   document.getElementById('returnedDate').value = item?.returnedDate || new Date().toISOString().split('T')[0];
   document.getElementById('returnedToFinder2').checked = item?.returnedToFinder || false;
   document.getElementById('returnRemark').value = item?.expireRemark || '';
+  // Reset zona foto (atau tampilkan foto existing kalau sudah pernah diupload sebelumnya)
+  document.getElementById('returnPhotoInput').value = '';
+  if (item?.returnPhotoUrl) {
+    document.getElementById('returnPhotoPreview').src = item.returnPhotoUrl;
+    document.getElementById('returnPhotoPreviewWrap').style.display = 'block';
+    document.getElementById('returnPhotoZone').style.display = 'none';
+  } else {
+    document.getElementById('returnPhotoPreviewWrap').style.display = 'none';
+    document.getElementById('returnPhotoZone').style.display = 'block';
+  }
   document.getElementById('returnToFinderModal').classList.add('open');
 }
 async function confirmReturnToFinder() {
   if (!currentUser) { toast('Login sebagai Admin untuk mengubah status','error'); return; }
   showLoading(true);
-  const { error } = await db.from('lost_found_items').update({
+  let returnPhotoUrl = null;
+  const returnFile = document.getElementById('returnPhotoInput').files[0];
+  if (returnFile) {
+    const uploadFile = await compressImageFile(returnFile);
+    const ext = uploadFile.name.split('.').pop().toLowerCase()
+      .replace('heic','jpg').replace('heif','jpg');
+    const fname = `return_${actionItemId}_${Date.now()}.${ext}`;
+    const { error:upErr } = await db.storage
+      .from('lost-and-found-photos')
+      .upload(fname, uploadFile, { contentType: uploadFile.type || 'image/jpeg' });
+    if (!upErr) {
+      const { data:urlData } = db.storage
+        .from('lost-and-found-photos')
+        .getPublicUrl(fname);
+      returnPhotoUrl = urlData.publicUrl;
+    } else {
+      toast('Foto bukti gagal diupload: ' + upErr.message, 'error');
+    }
+  }
+  const updateData = {
     returned_to_finder:document.getElementById('returnedToFinder2').checked,
     returned_date:document.getElementById('returnedDate').value,
     expire_remark:document.getElementById('returnRemark').value,
-  }).eq('id', actionItemId);
+  };
+  if (returnPhotoUrl) updateData.return_photo_url = returnPhotoUrl;
+  const { error } = await db.from('lost_found_items').update(updateData).eq('id', actionItemId);
   showLoading(false);
   if (error) { toast('Gagal update: '+error.message,'error'); return; }
   closeModal('returnToFinderModal');
