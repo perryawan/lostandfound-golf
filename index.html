@@ -1529,12 +1529,13 @@ function renderDashboard() {
   const ongoing  = cachedItems.filter(i=>i.status==='Ongoing').length;
   const claimed  = cachedItems.filter(i=>i.status==='Claimed').length;
   const expired  = cachedItems.filter(i=>i.status==='Expired').length;
+  const expiredNotReturned = cachedItems.filter(i=>i.status==='Expired'&&!i.returnedToFinder).length;
   const expiring = cachedItems.filter(i=>i.status==='Ongoing'&&daysLeft(i.expiryDate)<=30&&daysLeft(i.expiryDate)>=0).length;
   document.getElementById('s-ongoing').textContent  = ongoing;
   document.getElementById('s-claimed').textContent  = claimed;
   document.getElementById('s-expired').textContent  = expired;
   document.getElementById('s-expiring').textContent = expiring;
-  document.getElementById('s-total').textContent    = ongoing + expired;
+  document.getElementById('s-total').textContent    = ongoing + expiredNotReturned;
 
   const soon = cachedItems.filter(i=>i.status==='Ongoing'&&daysLeft(i.expiryDate)<=30&&daysLeft(i.expiryDate)>=0)
     .sort((a,b)=>new Date(a.date)-new Date(b.date));
