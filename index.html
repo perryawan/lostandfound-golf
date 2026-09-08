@@ -472,6 +472,7 @@ body.is-public .admin-action{display:none!important}
             <option>Security</option><option>Porter</option><option>Guest</option><option>DW</option><option>Other</option>
           </select>
         </div>
+        <div id="ongoingResultCount" style="font-size:12px;color:var(--text3);padding:2px 2px 10px 2px"></div>
         <!-- Desktop table -->
         <div class="table-wrap"><div id="ongoingTable"></div></div>
         <!-- Mobile cards -->
@@ -1761,6 +1762,7 @@ function renderOngoing() {
   if (dept) list = list.filter(i=>i.dept===dept);
   if (kw)   list = list.filter(i=>[i.itemType,i.location,i.finder,i.desc,i.dept].some(f=>f&&f.toLowerCase().includes(kw)));
   list.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  document.getElementById('ongoingResultCount').textContent = `${list.length} barang ditemukan`;
   if (!list.length) {
     const e = '<div class="empty-state"><i class="ti ti-inbox"></i><p>Tidak ada item ditemukan</p></div>';
     document.getElementById('ongoingTable').innerHTML = e;
