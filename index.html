@@ -503,6 +503,21 @@ body.is-public .admin-action{display:none!important}
         </div>
       </div>
       <div class="content">
+        <div class="filter-bar">
+          <input type="text" id="exKw" placeholder="Cari..." oninput="renderExpired()"/>
+          <select id="exDept" onchange="renderExpired()">
+            <option value="">Semua dept</option>
+            <option>Housekeeping</option><option>F&amp;B</option><option>Stater</option>
+            <option>Proshop</option><option>Front Office (FO)</option><option>Marketing</option>
+            <option>Security</option><option>Porter</option><option>Guest</option><option>DW</option><option>Other</option>
+          </select>
+          <select id="exStatus" onchange="renderExpired()">
+            <option value="">Semua</option>
+            <option value="belum">Belum Dikembalikan</option>
+            <option value="sudah">Sudah Dikembalikan</option>
+          </select>
+        </div>
+        <div id="expiredResultCount" style="font-size:12px;color:var(--text3);padding:2px 2px 10px 2px"></div>
         <div class="table-wrap"><div id="expiredTable"></div></div>
         <div class="item-card-list" id="expiredCards"></div>
       </div>
@@ -1355,7 +1370,7 @@ function deleteDepartment(name) {
 // Isi ulang 3 dropdown Departemen (Tambah Barang, Edit Barang, Filter Pencarian)
 // dari data DEPARTMENTS — reuse pola persis refreshCategoryDropdowns()
 function refreshDeptDropdowns() {
-  ['fDept','eDept','sDept'].forEach(id=>{
+  ['fDept','eDept','sDept','exDept'].forEach(id=>{
     const sel = document.getElementById(id);
     if (!sel) return;
     const cur = sel.value;
@@ -1845,7 +1860,17 @@ function renderClaimed() {
 }
 
 function renderExpired() {
-  const list = cachedItems.filter(i=>i.status==='Expired').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const kw = (document.getElementById('exKw')?.value||'').toLowerCase().trim();
+  const dept = document.getElementById('exDept')?.value||'';
+  const stat = document.getElementById('exStatus')?.value||'';
+  let list = cachedItems.filter(i=>i.status==='Expired');
+  if (dept) list = list.filter(i=>i.dept===dept);
+  if (stat==='belum') list = list.filter(i=>!i.returnedToFinder);
+  if (stat==='sudah') list = list.filter(i=>i.returnedToFinder);
+  if (kw) list = list.filter(i=>[i.itemType,i.location,i.finder,i.desc,i.dept].some(f=>f&&f.toLowerCase().includes(kw)));
+  list.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const countEl = document.getElementById('expiredResultCount');
+  if (countEl) countEl.textContent = `${list.length} barang ditemukan`;
   if (!list.length) {
     const e = '<div class="empty-state"><i class="ti ti-inbox"></i><p>Belum ada item expired</p></div>';
     document.getElementById('expiredTable').innerHTML = e;
@@ -1854,14 +1879,17 @@ function renderExpired() {
   }
   document.getElementById('expiredTable').innerHTML =
     `<table><thead><tr><th>#</th><th>Tanggal</th><th>Jenis Barang</th><th>Dept</th><th>Penemu</th><th>Lokasi</th><th>Tgl Expired</th><th>Dikembalikan</th><th>Aksi</th></tr></thead>
-    <tbody>${list.map((i,n)=>`<tr>
+    <tbody>${list.map((i,n)=>`<tr onclick="showDetail(${i.id})">
       <td style="color:var(--text3);font-size:11px">${n+1}</td>
       <td>${fmt(i.date)}</td>
       <td><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></td>
       <td>${i.dept}</td><td>${i.finder}</td><td>${i.location}</td>
       <td>${fmt(i.expireDate||i.expiryDate)}</td>
       <td>${i.returnedToFinder?'<span class="badge badge-claimed">Ya</span>':'<span class="badge badge-neutral">Tidak</span>'}</td>
-      <td onclick="event.stopPropagation()"><button class="btn btn-icon btn-sm" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i></button></td>
+      <td onclick="event.stopPropagation()" style="white-space:nowrap">
+        <button class="btn btn-icon btn-sm" onclick="showDetail(${i.id})" title="Detail"><i class="ti ti-eye"></i></button>
+        ${!i.returnedToFinder?`<button class="btn btn-primary btn-sm admin-action" onclick="openReturnToFinder(${i.id})" title="Kembalikan kepada Penemu"><i class="ti ti-rotate"></i></button>`:''}
+      </td>
     </tr>`).join('')}</tbody></table>`;
   document.getElementById('expiredCards').innerHTML = list.map(i=>`
     <div class="item-card">
@@ -1877,6 +1905,7 @@ function renderExpired() {
       </div>
       <div class="item-card-actions">
         <button class="btn btn-sm btn-block" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i> Lihat Detail</button>
+        ${!i.returnedToFinder?`<button class="btn btn-primary btn-sm admin-action" onclick="openReturnToFinder(${i.id})"><i class="ti ti-rotate"></i> Kembalikan</button>`:''}
       </div>
     </div>`).join('');
 }
