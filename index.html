@@ -159,6 +159,12 @@ textarea{resize:vertical}
   #page-expired .ex-search-group select,#page-expired .ex-search-group input{max-width:100%;flex-basis:100%}
 }
 
+/* ── Item thumbnail (reused by Dashboard, In Storage, Claimed, Search) ── */
+.item-thumb-cell{display:flex;align-items:center;gap:9px}
+.item-thumb{width:32px;height:32px;border-radius:7px;object-fit:cover;background:var(--surface2);border:1px solid var(--border);flex-shrink:0}
+.item-thumb-empty{display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:14px}
+.dash-item-top .item-thumb-cell{flex:1;min-width:0}
+
 /* ── MODAL ── */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
 .modal-bg.open{display:flex}
@@ -1592,14 +1598,14 @@ function renderDashboard() {
     ? `<div class="dash-table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Sisa</th></tr></thead>
        <tbody>${soon.map(i=>`<tr onclick="showDetail(${i.id})">
          <td>${fmt(i.date)}</td>
-         <td><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></td>
+         <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></div></div></td>
          <td>${i.dept}</td><td>${i.location}</td>
          <td>${daysLeftBadge(i.expiryDate)}</td>
        </tr>`).join('')}</tbody></table></div>
        <div class="dash-card-list">${soon.map(i=>`
          <div class="dash-item-card" onclick="showDetail(${i.id})">
            <div class="dash-item-top">
-             <span class="dash-item-name">${i.itemType}</span>
+             <div class="item-thumb-cell">${itemThumb(i)}<span class="dash-item-name">${i.itemType}</span></div>
              ${daysLeftBadge(i.expiryDate)}
            </div>
            <div class="dash-item-meta">${fmt(i.date)} · ${i.dept} · ${i.location}</div>
@@ -1610,14 +1616,14 @@ function renderDashboard() {
   document.getElementById('recentList').innerHTML = recent.length
     ? `<div class="dash-table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Status</th></tr></thead>
        <tbody>${recent.map(i=>`<tr onclick="showDetail(${i.id})">
-         <td>${fmt(i.date)}</td><td>${i.itemType}</td>
+         <td>${fmt(i.date)}</td><td><div class="item-thumb-cell">${itemThumb(i)}<span>${i.itemType}</span></div></td>
          <td>${i.dept}</td><td>${i.location}</td>
          <td>${statusBadge(i.status)}</td>
        </tr>`).join('')}</tbody></table></div>
        <div class="dash-card-list">${recent.map(i=>`
          <div class="dash-item-card" onclick="showDetail(${i.id})">
            <div class="dash-item-top">
-             <span class="dash-item-name">${i.itemType}</span>
+             <div class="item-thumb-cell">${itemThumb(i)}<span class="dash-item-name">${i.itemType}</span></div>
              ${statusBadge(i.status)}
            </div>
            <div class="dash-item-meta">${fmt(i.date)} · ${i.dept} · ${i.location}</div>
@@ -1823,7 +1829,7 @@ function renderOngoing() {
     <tbody>${list.map((i,n)=>`<tr>
       <td style="color:var(--text3);font-size:11px">${n+1}</td>
       <td>${fmt(i.date)}</td>
-      <td><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></td>
+      <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></div></div></td>
       <td>${i.dept}</td><td>${i.location}</td><td>${i.finder}</td>
       <td style="font-size:12px">${fmt(i.expiryDate)}</td>
       <td>${daysLeftBadge(i.expiryDate)}</td>
@@ -1837,7 +1843,7 @@ function renderOngoing() {
   document.getElementById('ongoingCards').innerHTML = list.map(i=>`
     <div class="item-card">
       <div class="item-card-top">
-        <div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div>
+        <div class="item-thumb-cell">${itemThumb(i)}<div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${daysLeftBadge(i.expiryDate)}</div>
       </div>
       <div class="item-card-body">
@@ -1868,7 +1874,7 @@ function renderClaimed() {
     <tbody>${list.map((i,n)=>`<tr>
       <td style="color:var(--text3);font-size:11px">${n+1}</td>
       <td>${fmt(i.date)}</td>
-      <td><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></td>
+      <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></div></div></td>
       <td>${i.dept}</td><td>${i.location}</td>
       <td>${fmt(i.claimDate)}</td>
       <td>${i.claimName||'—'}</td>
@@ -1877,7 +1883,7 @@ function renderClaimed() {
   document.getElementById('claimedCards').innerHTML = list.map(i=>`
     <div class="item-card">
       <div class="item-card-top">
-        <div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div>
+        <div class="item-thumb-cell">${itemThumb(i)}<div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div></div>
         ${statusBadge('Claimed')}
       </div>
       <div class="item-card-body">
@@ -1903,6 +1909,12 @@ function exThumb(i) {
   if (!i.photoUrl) return `<div class="ex-thumb ex-thumb-empty"><i class="ti ti-photo"></i></div>`;
   const src = i.photoUrl.replace(/"/g,'&quot;');
   return `<img src="${src}" alt="${cap}" class="ex-thumb" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="ex-thumb ex-thumb-empty" style="display:none"><i class="ti ti-photo"></i></div>`;
+}
+function itemThumb(i) {
+  const cap = (i.itemType||'').replace(/"/g,'&quot;');
+  if (!i.photoUrl) return `<div class="item-thumb item-thumb-empty"><i class="ti ti-photo"></i></div>`;
+  const src = i.photoUrl.replace(/"/g,'&quot;');
+  return `<img src="${src}" alt="${cap}" class="item-thumb" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="item-thumb item-thumb-empty" style="display:none"><i class="ti ti-photo"></i></div>`;
 }
 function renderExpired() {
   const kw = (document.getElementById('exKw')?.value||'').toLowerCase().trim();
@@ -2400,7 +2412,7 @@ function doSearch() {
       <table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Penemu</th><th>Status</th><th></th></tr></thead>
       <tbody>${list.map(i=>`<tr>
         <td>${fmt(i.date)}</td>
-        <td><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></td>
+        <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></div></div></td>
         <td>${i.dept}</td><td>${i.location}</td><td>${i.finder}</td>
         <td>${statusBadge(i.status)}</td>
         <td onclick="event.stopPropagation()"><button class="btn btn-icon btn-sm" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i></button></td>
@@ -2409,7 +2421,7 @@ function doSearch() {
     <div class="item-card-list" style="display:flex">
       ${list.map(i=>`<div class="item-card">
         <div class="item-card-top">
-          <div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div>
+          <div class="item-thumb-cell">${itemThumb(i)}<div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div></div>
           ${statusBadge(i.status)}
         </div>
         <div class="item-card-body">
