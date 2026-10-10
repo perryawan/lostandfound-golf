@@ -2468,14 +2468,18 @@ function generateReport() {
   document.getElementById('reportTableWrap').innerHTML=
     `<div class="table-wrap"><table>
       <thead><tr><th>Tanggal</th><th>Jenis</th><th>Kategori</th><th>Dept</th><th>Penemu</th><th>Lokasi</th><th>Deskripsi</th><th>Status</th><th>Exp.Date</th></tr></thead>
-      <tbody>${list.map(i=>`<tr onclick="showDetail(${i.id})">
+      <tbody>${list.map(i=>{
+        const hideExp = i.status==='Claimed' || (i.status==='Expired' && i.returnedToFinder);
+        const expCell = hideExp ? '—' : fmt(i.expiryDate);
+        return `<tr onclick="showDetail(${i.id})">
         <td>${fmt(i.date)}</td><td>${i.itemType}</td>
         <td><span class="badge badge-neutral" style="font-size:10px">${i.category}</span></td>
         <td>${i.dept}</td><td>${i.finder}</td><td>${i.location}</td>
         <td style="max-width:160px;font-size:12px;color:var(--text2)">${i.desc}</td>
         <td>${statusBadge(i.status)}</td>
-        <td style="font-size:12px">${fmt(i.expiryDate)}</td>
-      </tr>`).join('')}</tbody></table></div>`;
+        <td style="font-size:12px">${expCell}</td>
+      </tr>`;
+      }).join('')}</tbody></table></div>`;
 }
 function exportExcel() {
   const list=getReportData();
@@ -2503,7 +2507,11 @@ function exportPDF() {
   <body><h2>Lost & Found Report — Golf Club</h2>
   <p class="sub">Periode: ${from||'awal'} s.d. ${to||'sekarang'} | Total: ${list.length} item | Dicetak: ${new Date().toLocaleDateString('id-ID')}</p>
   <table><thead><tr><th>#</th><th>Tanggal</th><th>Jenis Barang</th><th>Kategori</th><th>Dept</th><th>Penemu</th><th>Lokasi</th><th>Deskripsi</th><th>Status</th><th>Exp.Date</th></tr></thead>
-  <tbody>${list.map((i,n)=>`<tr><td>${n+1}</td><td>${i.date}</td><td>${i.itemType}</td><td>${i.category}</td><td>${i.dept}</td><td>${i.finder}</td><td>${i.location}</td><td>${i.desc}</td><td class="${i.status==='Ongoing'?'o':i.status==='Claimed'?'c':'e'}">${i.status==='Ongoing'?'In Storage':i.status}</td><td>${i.expiryDate}</td></tr>`).join('')}
+  <tbody>${list.map((i,n)=>{
+    const hideExp = i.status==='Claimed' || (i.status==='Expired' && i.returnedToFinder);
+    const expCell = hideExp ? '—' : i.expiryDate;
+    return `<tr><td>${n+1}</td><td>${i.date}</td><td>${i.itemType}</td><td>${i.category}</td><td>${i.dept}</td><td>${i.finder}</td><td>${i.location}</td><td>${i.desc}</td><td class="${i.status==='Ongoing'?'o':i.status==='Claimed'?'c':'e'}">${i.status==='Ongoing'?'In Storage':i.status}</td><td>${expCell}</td></tr>`;
+  }).join('')}
   </tbody></table></body></html>`);
   win.document.close(); setTimeout(()=>win.print(),400);
 }
