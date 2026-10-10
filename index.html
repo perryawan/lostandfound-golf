@@ -1815,7 +1815,7 @@ function renderOngoing() {
   if (cat)  list = list.filter(i=>i.category===cat);
   if (dept) list = list.filter(i=>i.dept===dept);
   if (kw)   list = list.filter(i=>[i.itemType,i.location,i.finder,i.desc,i.dept].some(f=>f&&f.toLowerCase().includes(kw)));
-  list.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  list.sort((a,b)=>new Date(b.date)-new Date(a.date));
   document.getElementById('ongoingResultCount').textContent = `${list.length} barang ditemukan`;
   if (!list.length) {
     const e = '<div class="empty-state"><i class="ti ti-inbox"></i><p>Tidak ada item ditemukan</p></div>';
@@ -1862,7 +1862,7 @@ function renderOngoing() {
 }
 
 function renderClaimed() {
-  const list = cachedItems.filter(i=>i.status==='Claimed').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const list = cachedItems.filter(i=>i.status==='Claimed').sort((a,b)=>new Date(b.date)-new Date(a.date));
   if (!list.length) {
     const e = '<div class="empty-state"><i class="ti ti-inbox"></i><p>Belum ada item claimed</p></div>';
     document.getElementById('claimedTable').innerHTML = e;
@@ -1932,9 +1932,9 @@ function renderExpired() {
   if (exStatusFilter==='sudah') list = list.filter(i=>i.returnedToFinder);
   if (kw) list = list.filter(i=>[i.itemType,i.location,i.finder,i.desc,i.dept].some(f=>f&&f.toLowerCase().includes(kw)));
   if (exStatusFilter==='') {
-    list = [...list].sort((a,b)=> (a.returnedToFinder===b.returnedToFinder) ? (new Date(a.date)-new Date(b.date)) : (a.returnedToFinder?1:-1));
+    list = [...list].sort((a,b)=> (a.returnedToFinder===b.returnedToFinder) ? (new Date(b.date)-new Date(a.date)) : (a.returnedToFinder?1:-1));
   } else {
-    list.sort((a,b)=>new Date(a.date)-new Date(b.date));
+    list.sort((a,b)=>new Date(b.date)-new Date(a.date));
   }
   const countEl = document.getElementById('expiredResultCount');
   if (countEl) countEl.textContent = `${list.length} barang ditemukan`;
@@ -2402,7 +2402,7 @@ function doSearch() {
   if (from)   list=list.filter(i=>i.date>=from);
   if (to)     list=list.filter(i=>i.date<=to);
   if (kw)     list=list.filter(i=>[i.itemType,i.location,i.finder,i.desc,i.dept,i.category,i.status].some(f=>f&&f.toLowerCase().includes(kw)));
-  list.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  list.sort((a,b)=>new Date(b.date)-new Date(a.date));
   if (!list.length) {
     document.getElementById('searchResults').innerHTML='<div class="empty-state card"><i class="ti ti-search-off"></i><p>Tidak ada hasil</p></div>'; return;
   }
