@@ -367,9 +367,9 @@ body.is-public .admin-action{display:none!important}
       </div>
       <div class="content">
         <div class="stat-grid">
-          <div class="stat-card"><div class="stat-label">In Storage</div><div class="stat-value c-green" id="s-ongoing">—</div></div>
-          <div class="stat-card"><div class="stat-label">Claimed</div><div class="stat-value c-blue" id="s-claimed">—</div></div>
-          <div class="stat-card"><div class="stat-label">Expired</div><div class="stat-value c-red" id="s-expired">—</div></div>
+          <div class="stat-card" onclick="nav('ongoing')" style="cursor:pointer"><div class="stat-label">In Storage</div><div class="stat-value c-green" id="s-ongoing">—</div></div>
+          <div class="stat-card" onclick="nav('claimed')" style="cursor:pointer"><div class="stat-label">Claimed</div><div class="stat-value c-blue" id="s-claimed">—</div></div>
+          <div class="stat-card" onclick="nav('expired')" style="cursor:pointer"><div class="stat-label">Expired</div><div class="stat-value c-red" id="s-expired">—</div></div>
           <div class="stat-card"><div class="stat-label">Exp ≤30 hari</div><div class="stat-value c-amber" id="s-expiring">—</div></div>
           <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value c-gray" id="s-total">—</div></div>
         </div>
