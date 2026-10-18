@@ -1122,7 +1122,7 @@ function applyAuthUI() {
   const badge = document.getElementById('roleBadge');
   badge.className = `role-badge ${isAdmin ? 'admin' : 'public'}`;
   badge.innerHTML = isAdmin
-    ? `<i class="ti ti-shield-check"></i> Admin: ${currentUser.email.split('@')[0]}`
+    ? `<i class="ti ti-shield-check"></i> Admin: ${esc(currentUser.email.split('@')[0])}`
     : `<i class="ti ti-eye"></i> Mode: Publik`;
   // Auth button label
   const btn = document.getElementById('authBtn');
@@ -1343,9 +1343,9 @@ function renderDepartmentSettings() {
     DEPARTMENTS.map(d => {
       const isDefault = findRawDefaultDeptKey(d) !== null;
       return `<div style="display:inline-flex;align-items:center;gap:4px;background:${isDefault?'var(--surface2)':'var(--green-lt)'};border:1px solid ${isDefault?'var(--border)':'#9FE1CB'};border-radius:20px;padding:3px 10px;font-size:12px">
-        <span>${d}</span>
-        <button onclick="openEditDepartment('${d}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0 0 0 2px" title="Edit"><i class="ti ti-pencil"></i></button>
-        ${!isDefault?`<button onclick="deleteDepartment('${d}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 2px" title="Hapus">×</button>`:''}
+        <span>${esc(d)}</span>
+        <button onclick="openEditDepartment('${jsq(d)}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0 0 0 2px" title="Edit"><i class="ti ti-pencil"></i></button>
+        ${!isDefault?`<button onclick="deleteDepartment('${jsq(d)}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 2px" title="Hapus">×</button>`:''}
       </div>`;
     }).join('') + `</div>`;
 }
@@ -1479,7 +1479,7 @@ function showLoading(v) { document.getElementById('loadingOverlay').classList.to
 let toastTimer;
 function toast(msg, type='success') {
   const el = document.getElementById('toast');
-  el.innerHTML = `<i class="ti ti-${type==='success'?'circle-check':'alert-circle'}"></i> ${msg}`;
+  el.innerHTML = `<i class="ti ti-${type==='success'?'circle-check':'alert-circle'}"></i> ${esc(msg)}`;
   el.className = `toast show ${type}`;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>el.classList.remove('show'), 3200);
@@ -1498,6 +1498,14 @@ function addMonths(dateStr, m) {
   const daysInTargetMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
   d.setDate(Math.min(originalDay, daysInTargetMonth)); // clamp ke tanggal terakhir bulan tujuan kalau perlu
   return d.toISOString().split('T')[0];
+}
+// Escape teks input sebelum disisipkan ke HTML (cegah tampilan rusak / injeksi script)
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+// Untuk nilai di dalam onclick="fn('...')" : escape JS dulu, lalu HTML
+function jsq(s) {
+  return esc(String(s == null ? '' : s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
 }
 // Format tanggal LOKAL (YYYY-MM-DD) — toISOString() memakai UTC sehingga di WITA
 // (UTC+8) antara 00.00–08.00 hasilnya mundur ke hari kemarin.
@@ -1604,17 +1612,17 @@ function renderDashboard() {
     ? `<div class="dash-table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Sisa</th></tr></thead>
        <tbody>${soon.map(i=>`<tr onclick="showDetail(${i.id})">
          <td>${fmt(i.date)}</td>
-         <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></div></div></td>
-         <td>${i.dept}</td><td>${i.location}</td>
+         <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${esc(i.itemType)}</strong><br><small style="color:var(--text3)">${esc(i.category)}</small></div></div></td>
+         <td>${esc(i.dept)}</td><td>${esc(i.location)}</td>
          <td>${daysLeftBadge(i.expiryDate)}</td>
        </tr>`).join('')}</tbody></table></div>
        <div class="dash-card-list">${soon.map(i=>`
          <div class="dash-item-card" onclick="showDetail(${i.id})">
            <div class="dash-item-top">
-             <div class="item-thumb-cell">${itemThumb(i)}<span class="dash-item-name">${i.itemType}</span></div>
+             <div class="item-thumb-cell">${itemThumb(i)}<span class="dash-item-name">${esc(i.itemType)}</span></div>
              ${daysLeftBadge(i.expiryDate)}
            </div>
-           <div class="dash-item-meta">${fmt(i.date)} · ${i.dept} · ${i.location}</div>
+           <div class="dash-item-meta">${fmt(i.date)} · ${esc(i.dept)} · ${esc(i.location)}</div>
          </div>`).join('')}</div>`
     : '<div class="empty-state" style="padding:20px"><i class="ti ti-circle-check" style="color:var(--green);font-size:28px;opacity:1"></i><p>Tidak ada yang akan kedaluwarsa dalam 30 hari</p></div>';
 
@@ -1622,17 +1630,17 @@ function renderDashboard() {
   document.getElementById('recentList').innerHTML = recent.length
     ? `<div class="dash-table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Status</th></tr></thead>
        <tbody>${recent.map(i=>`<tr onclick="showDetail(${i.id})">
-         <td>${fmt(i.date)}</td><td><div class="item-thumb-cell">${itemThumb(i)}<span>${i.itemType}</span></div></td>
-         <td>${i.dept}</td><td>${i.location}</td>
+         <td>${fmt(i.date)}</td><td><div class="item-thumb-cell">${itemThumb(i)}<span>${esc(i.itemType)}</span></div></td>
+         <td>${esc(i.dept)}</td><td>${esc(i.location)}</td>
          <td>${statusBadge(i.status)}</td>
        </tr>`).join('')}</tbody></table></div>
        <div class="dash-card-list">${recent.map(i=>`
          <div class="dash-item-card" onclick="showDetail(${i.id})">
            <div class="dash-item-top">
-             <div class="item-thumb-cell">${itemThumb(i)}<span class="dash-item-name">${i.itemType}</span></div>
+             <div class="item-thumb-cell">${itemThumb(i)}<span class="dash-item-name">${esc(i.itemType)}</span></div>
              ${statusBadge(i.status)}
            </div>
-           <div class="dash-item-meta">${fmt(i.date)} · ${i.dept} · ${i.location}</div>
+           <div class="dash-item-meta">${fmt(i.date)} · ${esc(i.dept)} · ${esc(i.location)}</div>
          </div>`).join('')}</div>`
     : '<div class="empty-state" style="padding:20px"><i class="ti ti-inbox"></i><p>Belum ada data</p></div>';
 }
@@ -1835,8 +1843,8 @@ function renderOngoing() {
     <tbody>${list.map((i,n)=>`<tr>
       <td style="color:var(--text3);font-size:11px">${n+1}</td>
       <td>${fmt(i.date)}</td>
-      <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></div></div></td>
-      <td>${i.dept}</td><td>${i.location}</td><td>${i.finder}</td>
+      <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${esc(i.itemType)}</strong><br><small style="color:var(--text3)">${esc(i.category)}</small></div></div></td>
+      <td>${esc(i.dept)}</td><td>${esc(i.location)}</td><td>${esc(i.finder)}</td>
       <td style="font-size:12px">${fmt(i.expiryDate)}</td>
       <td>${daysLeftBadge(i.expiryDate)}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">
@@ -1849,14 +1857,14 @@ function renderOngoing() {
   document.getElementById('ongoingCards').innerHTML = list.map(i=>`
     <div class="item-card">
       <div class="item-card-top">
-        <div class="item-thumb-cell">${itemThumb(i)}<div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div></div>
+        <div class="item-thumb-cell">${itemThumb(i)}<div><div class="item-card-name">${esc(i.itemType)}</div><div class="item-card-sub">${esc(i.category)}</div></div></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${daysLeftBadge(i.expiryDate)}</div>
       </div>
       <div class="item-card-body">
         <div class="item-card-field"><label>Tanggal</label><div class="v">${fmt(i.date)}</div></div>
-        <div class="item-card-field"><label>Penemu</label><div class="v">${i.finder}</div></div>
-        <div class="item-card-field"><label>Dept</label><div class="v">${i.dept}</div></div>
-        <div class="item-card-field"><label>Lokasi</label><div class="v">${i.location}</div></div>
+        <div class="item-card-field"><label>Penemu</label><div class="v">${esc(i.finder)}</div></div>
+        <div class="item-card-field"><label>Dept</label><div class="v">${esc(i.dept)}</div></div>
+        <div class="item-card-field"><label>Lokasi</label><div class="v">${esc(i.location)}</div></div>
         <div class="item-card-field" style="grid-column:1/-1"><label>Exp. Date</label><div class="v">${fmt(i.expiryDate)}</div></div>
       </div>
       <div class="item-card-actions">
@@ -1880,23 +1888,23 @@ function renderClaimed() {
     <tbody>${list.map((i,n)=>`<tr>
       <td style="color:var(--text3);font-size:11px">${n+1}</td>
       <td>${fmt(i.date)}</td>
-      <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></div></div></td>
-      <td>${i.dept}</td><td>${i.location}</td>
+      <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${esc(i.itemType)}</strong><br><small style="color:var(--text3)">${esc(i.category)}</small></div></div></td>
+      <td>${esc(i.dept)}</td><td>${esc(i.location)}</td>
       <td>${fmt(i.claimDate)}</td>
-      <td>${i.claimName||'—'}</td>
+      <td>${esc(i.claimName||'—')}</td>
       <td onclick="event.stopPropagation()"><button class="btn btn-icon btn-sm" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i></button></td>
     </tr>`).join('')}</tbody></table>`;
   document.getElementById('claimedCards').innerHTML = list.map(i=>`
     <div class="item-card">
       <div class="item-card-top">
-        <div class="item-thumb-cell">${itemThumb(i)}<div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div></div>
+        <div class="item-thumb-cell">${itemThumb(i)}<div><div class="item-card-name">${esc(i.itemType)}</div><div class="item-card-sub">${esc(i.category)}</div></div></div>
         ${statusBadge('Claimed')}
       </div>
       <div class="item-card-body">
         <div class="item-card-field"><label>Tgl ditemukan</label><div class="v">${fmt(i.date)}</div></div>
         <div class="item-card-field"><label>Tgl diambil</label><div class="v">${fmt(i.claimDate)}</div></div>
-        <div class="item-card-field"><label>Dept</label><div class="v">${i.dept}</div></div>
-        <div class="item-card-field"><label>Penerima</label><div class="v">${i.claimName||'—'}</div></div>
+        <div class="item-card-field"><label>Dept</label><div class="v">${esc(i.dept)}</div></div>
+        <div class="item-card-field"><label>Penerima</label><div class="v">${esc(i.claimName||'—')}</div></div>
       </div>
       <div class="item-card-actions">
         <button class="btn btn-sm btn-block" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i> Lihat Detail & Bukti</button>
@@ -1955,8 +1963,8 @@ function renderExpired() {
     <tbody>${list.map((i,n)=>`<tr onclick="showDetail(${i.id})">
       <td style="color:var(--text3);font-size:11px">${n+1}</td>
       <td>${fmt(i.date)}</td>
-      <td><div class="ex-item-cell">${exThumb(i)}<div><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></div></div></td>
-      <td>${i.dept}</td><td>${i.finder}</td><td>${i.location}</td>
+      <td><div class="ex-item-cell">${exThumb(i)}<div><strong>${esc(i.itemType)}</strong><br><small style="color:var(--text3)">${esc(i.category)}</small></div></div></td>
+      <td>${esc(i.dept)}</td><td>${esc(i.finder)}</td><td>${esc(i.location)}</td>
       <td>${fmt(i.expireDate||i.expiryDate)}</td>
       <td>${i.returnedToFinder?'<span class="badge badge-claimed">Ya</span>':'<span class="badge badge-neutral">Tidak</span>'}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">
@@ -1967,13 +1975,13 @@ function renderExpired() {
   document.getElementById('expiredCards').innerHTML = list.map(i=>`
     <div class="item-card">
       <div class="item-card-top">
-        <div class="ex-item-cell">${exThumb(i)}<div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div></div>
+        <div class="ex-item-cell">${exThumb(i)}<div><div class="item-card-name">${esc(i.itemType)}</div><div class="item-card-sub">${esc(i.category)}</div></div></div>
         ${statusBadge('Expired')}
       </div>
       <div class="item-card-body">
         <div class="item-card-field"><label>Tgl ditemukan</label><div class="v">${fmt(i.date)}</div></div>
         <div class="item-card-field"><label>Tgl expired</label><div class="v">${fmt(i.expireDate||i.expiryDate)}</div></div>
-        <div class="item-card-field"><label>Penemu</label><div class="v">${i.finder}</div></div>
+        <div class="item-card-field"><label>Penemu</label><div class="v">${esc(i.finder)}</div></div>
         <div class="item-card-field"><label>Dikembalikan</label><div class="v">${i.returnedToFinder?'Ya':'Tidak'}</div></div>
       </div>
       <div class="item-card-actions">
@@ -1993,17 +2001,17 @@ function showDetail(id) {
   let html = `<div class="detail-grid">
     ${row('Tanggal ditemukan',fmt(i.date))}
     ${row('Status',statusBadge(i.status))}
-    ${row('Penemu',i.finder)}
-    ${row('Departemen',i.dept)}
-    ${row('Kategori',i.category)}
-    ${row('Jenis barang',i.itemType)}
-    ${row('Lokasi',i.location)}
-    ${row('Deskripsi',i.desc,true)}
-    ${i.remark?row('Remark',i.remark,true):''}
+    ${row('Penemu',esc(i.finder))}
+    ${row('Departemen',esc(i.dept))}
+    ${row('Kategori',esc(i.category))}
+    ${row('Jenis barang',esc(i.itemType))}
+    ${row('Lokasi',esc(i.location))}
+    ${row('Deskripsi',esc(i.desc),true)}
+    ${i.remark?row('Remark',esc(i.remark),true):''}
     ${row('Tanggal kedaluwarsa',fmt(i.expiryDate))}
   `;
-  if (i.status==='Claimed') html+=row('Tgl diambil',fmt(i.claimDate))+row('Nama penerima',i.claimName||'—')+row('Remark claim',i.claimRemark||'—',true);
-  if (i.status==='Expired') html+=row('Tgl expired',fmt(i.expireDate||i.expiryDate))+row('Dikembalikan',i.returnedToFinder?'Ya':'Tidak')+(i.returnedDate?row('Tgl pengembalian',fmt(i.returnedDate)):'')+row('Tindak lanjut',i.expireAction||'—')+row('Remark expired',i.expireRemark||'—',true);
+  if (i.status==='Claimed') html+=row('Tgl diambil',fmt(i.claimDate))+row('Nama penerima',esc(i.claimName||'—'))+row('Remark claim',esc(i.claimRemark||'—'),true);
+  if (i.status==='Expired') html+=row('Tgl expired',fmt(i.expireDate||i.expiryDate))+row('Dikembalikan',i.returnedToFinder?'Ya':'Tidak')+(i.returnedDate?row('Tgl pengembalian',fmt(i.returnedDate)):'')+row('Tindak lanjut',esc(i.expireAction||'—'))+row('Remark expired',esc(i.expireRemark||'—'),true);
   html += '</div>';
 
   // Foto barang — klik buka photo modal
@@ -2191,9 +2199,9 @@ function openDelete(id) {
   const i = cachedItems.find(x=>x.id===id); if (!i) return;
   document.getElementById('deleteConfirmText').innerHTML =
     `Anda akan menghapus barang berikut:<br><br>
-     <strong>${i.itemType}</strong> — ${i.category}<br>
-     Ditemukan: ${fmt(i.date)} oleh ${i.finder}<br>
-     Lokasi: ${i.location}<br>
+     <strong>${esc(i.itemType)}</strong> — ${esc(i.category)}<br>
+     Ditemukan: ${fmt(i.date)} oleh ${esc(i.finder)}<br>
+     Lokasi: ${esc(i.location)}<br>
      Status saat ini: ${i.status}`;
   document.getElementById('deleteModal').dataset.deleteId = id;
   closeModal('detailModal');
@@ -2418,8 +2426,8 @@ function doSearch() {
       <table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Dept</th><th>Lokasi</th><th>Penemu</th><th>Status</th><th></th></tr></thead>
       <tbody>${list.map(i=>`<tr>
         <td>${fmt(i.date)}</td>
-        <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${i.itemType}</strong><br><small style="color:var(--text3)">${i.category}</small></div></div></td>
-        <td>${i.dept}</td><td>${i.location}</td><td>${i.finder}</td>
+        <td><div class="item-thumb-cell">${itemThumb(i)}<div><strong>${esc(i.itemType)}</strong><br><small style="color:var(--text3)">${esc(i.category)}</small></div></div></td>
+        <td>${esc(i.dept)}</td><td>${esc(i.location)}</td><td>${esc(i.finder)}</td>
         <td>${statusBadge(i.status)}</td>
         <td onclick="event.stopPropagation()"><button class="btn btn-icon btn-sm" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i></button></td>
       </tr>`).join('')}</tbody></table>
@@ -2427,14 +2435,14 @@ function doSearch() {
     <div class="item-card-list" style="display:flex">
       ${list.map(i=>`<div class="item-card">
         <div class="item-card-top">
-          <div class="item-thumb-cell">${itemThumb(i)}<div><div class="item-card-name">${i.itemType}</div><div class="item-card-sub">${i.category}</div></div></div>
+          <div class="item-thumb-cell">${itemThumb(i)}<div><div class="item-card-name">${esc(i.itemType)}</div><div class="item-card-sub">${esc(i.category)}</div></div></div>
           ${statusBadge(i.status)}
         </div>
         <div class="item-card-body">
           <div class="item-card-field"><label>Tanggal</label><div class="v">${fmt(i.date)}</div></div>
-          <div class="item-card-field"><label>Penemu</label><div class="v">${i.finder}</div></div>
-          <div class="item-card-field"><label>Dept</label><div class="v">${i.dept}</div></div>
-          <div class="item-card-field"><label>Lokasi</label><div class="v">${i.location}</div></div>
+          <div class="item-card-field"><label>Penemu</label><div class="v">${esc(i.finder)}</div></div>
+          <div class="item-card-field"><label>Dept</label><div class="v">${esc(i.dept)}</div></div>
+          <div class="item-card-field"><label>Lokasi</label><div class="v">${esc(i.location)}</div></div>
         </div>
         <div class="item-card-actions">
           <button class="btn btn-sm btn-block" onclick="showDetail(${i.id})"><i class="ti ti-eye"></i> Detail</button>
@@ -2478,10 +2486,10 @@ function generateReport() {
         const hideExp = i.status==='Claimed' || (i.status==='Expired' && i.returnedToFinder);
         const expCell = hideExp ? '—' : fmt(i.expiryDate);
         return `<tr onclick="showDetail(${i.id})">
-        <td>${fmt(i.date)}</td><td>${i.itemType}</td>
-        <td><span class="badge badge-neutral" style="font-size:10px">${i.category}</span></td>
-        <td>${i.dept}</td><td>${i.finder}</td><td>${i.location}</td>
-        <td style="max-width:160px;font-size:12px;color:var(--text2)">${i.desc}</td>
+        <td>${fmt(i.date)}</td><td>${esc(i.itemType)}</td>
+        <td><span class="badge badge-neutral" style="font-size:10px">${esc(i.category)}</span></td>
+        <td>${esc(i.dept)}</td><td>${esc(i.finder)}</td><td>${esc(i.location)}</td>
+        <td style="max-width:160px;font-size:12px;color:var(--text2)">${esc(i.desc)}</td>
         <td>${statusBadge(i.status)}</td>
         <td style="font-size:12px">${expCell}</td>
       </tr>`;
@@ -2516,7 +2524,7 @@ function exportPDF() {
   <tbody>${list.map((i,n)=>{
     const hideExp = i.status==='Claimed' || (i.status==='Expired' && i.returnedToFinder);
     const expCell = hideExp ? '—' : i.expiryDate;
-    return `<tr><td>${n+1}</td><td>${i.date}</td><td>${i.itemType}</td><td>${i.category}</td><td>${i.dept}</td><td>${i.finder}</td><td>${i.location}</td><td>${i.desc}</td><td class="${i.status==='Ongoing'?'o':i.status==='Claimed'?'c':'e'}">${i.status==='Ongoing'?'In Storage':i.status}</td><td>${expCell}</td></tr>`;
+    return `<tr><td>${n+1}</td><td>${i.date}</td><td>${esc(i.itemType)}</td><td>${esc(i.category)}</td><td>${esc(i.dept)}</td><td>${esc(i.finder)}</td><td>${esc(i.location)}</td><td>${esc(i.desc)}</td><td class="${i.status==='Ongoing'?'o':i.status==='Claimed'?'c':'e'}">${i.status==='Ongoing'?'In Storage':i.status}</td><td>${expCell}</td></tr>`;
   }).join('')}
   </tbody></table></body></html>`);
   win.document.close(); setTimeout(()=>win.print(),400);
@@ -2531,10 +2539,10 @@ function renderSettings() {
     const types  = ITEM_TYPES[cat].filter(t=>t!=='Lainnya...');
     return `<div class="card" style="margin-bottom:12px">
       <div class="card-title" style="justify-content:space-between">
-        <span><i class="ti ti-tag"></i> ${cat}</span>
+        <span><i class="ti ti-tag"></i> ${esc(cat)}</span>
         <div style="display:flex;align-items:center;gap:6px">
-          <button class="btn btn-sm btn-icon" onclick="openEditCategory('${cat}')" title="Edit kategori"><i class="ti ti-pencil"></i></button>
-          <button class="btn btn-sm btn-icon btn-danger" onclick="deleteCategory('${cat}')" title="Hapus kategori"><i class="ti ti-trash"></i></button>
+          <button class="btn btn-sm btn-icon" onclick="openEditCategory('${jsq(cat)}')" title="Edit kategori"><i class="ti ti-pencil"></i></button>
+          <button class="btn btn-sm btn-icon btn-danger" onclick="deleteCategory('${jsq(cat)}')" title="Hapus kategori"><i class="ti ti-trash"></i></button>
         </div>
       </div>   
    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
@@ -2543,13 +2551,13 @@ function renderSettings() {
           const tm = getTypeMonths(cat, t);
           const tmLabel = tm===1?'1 bln':tm<12?`${tm} bln`:`${tm/12===1?'1 th':`${tm/12} th`}`;
           return `<div style="display:inline-flex;align-items:center;gap:4px;background:${isDefault?'var(--surface2)':'var(--green-lt)'};border:1px solid ${isDefault?'var(--border)':'#9FE1CB'};border-radius:20px;padding:3px 10px;font-size:12px">
-            <span>${t}</span>
+            <span>${esc(t)}</span>
             <small style="opacity:.6;font-size:10px">(${tmLabel})</small>
-            <button onclick="openEditType('${cat}','${t}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0 0 0 2px" title="Edit"><i class="ti ti-pencil"></i></button>
-            ${!isDefault?`<button onclick="removeType('${cat}','${t}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 2px" title="Hapus">×</button>`:''}
+            <button onclick="openEditType('${jsq(cat)}','${jsq(t)}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0 0 0 2px" title="Edit"><i class="ti ti-pencil"></i></button>
+            ${!isDefault?`<button onclick="removeType('${jsq(cat)}','${jsq(t)}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 2px" title="Hapus">×</button>`:''}
           </div>`;
         }).join('')}
-        <button class="btn btn-sm" onclick="openAddType('${cat}')" style="border-style:dashed">
+        <button class="btn btn-sm" onclick="openAddType('${jsq(cat)}')" style="border-style:dashed">
           <i class="ti ti-plus"></i> Tambah jenis
         </button>
       </div>
