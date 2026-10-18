@@ -1499,6 +1499,12 @@ function addMonths(dateStr, m) {
   d.setDate(Math.min(originalDay, daysInTargetMonth)); // clamp ke tanggal terakhir bulan tujuan kalau perlu
   return d.toISOString().split('T')[0];
 }
+// Format tanggal LOKAL (YYYY-MM-DD) — toISOString() memakai UTC sehingga di WITA
+// (UTC+8) antara 00.00–08.00 hasilnya mundur ke hari kemarin.
+function toLocalISO(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function todayLocal() { return toLocalISO(new Date()); }
 function daysLeft(expiry) {
   const now = new Date();
   const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
@@ -1750,7 +1756,7 @@ function clearForm() {
   ['fFinder','fLocation','fDesc','fRemark'].forEach(id=>document.getElementById(id).value='');
   ['fDept','fCategory'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fItemType').innerHTML = '<option value="">— Pilih kategori dulu —</option>';
-  document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fDate').value = todayLocal();
   document.getElementById('expiryPreview').style.display = 'none';
   document.getElementById('customTypeWrap').style.display = 'none';
   removeItemPhoto();
@@ -1908,13 +1914,13 @@ function exThumb(i) {
   const cap = (i.itemType||'').replace(/"/g,'&quot;');
   if (!i.photoUrl) return `<div class="ex-thumb ex-thumb-empty"><i class="ti ti-photo"></i></div>`;
   const src = i.photoUrl.replace(/"/g,'&quot;');
-  return `<img src="${src}" alt="${cap}" class="ex-thumb" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="ex-thumb ex-thumb-empty" style="display:none"><i class="ti ti-photo"></i></div>`;
+  return `<img src="${src}" alt="${cap}" class="ex-thumb" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="ex-thumb ex-thumb-empty" style="display:none"><i class="ti ti-photo"></i></div>`;
 }
 function itemThumb(i) {
   const cap = (i.itemType||'').replace(/"/g,'&quot;');
   if (!i.photoUrl) return `<div class="item-thumb item-thumb-empty"><i class="ti ti-photo"></i></div>`;
   const src = i.photoUrl.replace(/"/g,'&quot;');
-  return `<img src="${src}" alt="${cap}" class="item-thumb" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="item-thumb item-thumb-empty" style="display:none"><i class="ti ti-photo"></i></div>`;
+  return `<img src="${src}" alt="${cap}" class="item-thumb" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="item-thumb item-thumb-empty" style="display:none"><i class="ti ti-photo"></i></div>`;
 }
 function renderExpired() {
   const kw = (document.getElementById('exKw')?.value||'').toLowerCase().trim();
@@ -2241,7 +2247,7 @@ function removeReturnPhoto() {
 }
 function openClaim(id) {
   actionItemId = id;
-  document.getElementById('claimDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('claimDate').value = todayLocal();
   document.getElementById('claimName').value = '';
   document.getElementById('claimRemark').value = '';
   removeClaimPhoto();
@@ -2291,7 +2297,7 @@ async function confirmClaim() {
 // ══════════════════════════════════════════════
 function openExpire(id) {
   actionItemId = id;
-  document.getElementById('expireDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('expireDate').value = todayLocal();
   document.getElementById('expireRemark').value = '';
   document.getElementById('expireAction').value = '';
   document.getElementById('returnedToFinder').checked = false;
@@ -2323,7 +2329,7 @@ async function confirmExpire() {
 function openReturnToFinder(id) {
   actionItemId = id;
   const item = cachedItems.find(i => i.id === id);
-  document.getElementById('returnedDate').value = item?.returnedDate || new Date().toISOString().split('T')[0];
+  document.getElementById('returnedDate').value = item?.returnedDate || todayLocal();
   document.getElementById('returnedToFinder2').checked = item?.returnedToFinder || false;
   document.getElementById('returnRemark').value = item?.expireRemark || '';
   // Reset zona foto (atau tampilkan foto existing kalau sudah pernah diupload sebelumnya)
@@ -2490,7 +2496,7 @@ function exportExcel() {
   const wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet(ws_data);
   ws['!cols']=ws_data[0].map((_,i)=>({wch:i===6?30:16}));
   XLSX.utils.book_append_sheet(wb,ws,'Lost & Found');
-  XLSX.writeFile(wb,`LostFound_${new Date().toISOString().split('T')[0]}.xlsx`);
+  XLSX.writeFile(wb,`LostFound_${todayLocal()}.xlsx`);
   toast('File Excel berhasil diunduh ✓');
 }
 function exportPDF() {
@@ -2758,20 +2764,23 @@ function refreshCategoryDropdowns() {  ['fCategory','ongoingCat','sCat'].forEach
   renderDashboard();
 
   // Default dates
-  document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fDate').value = todayLocal();
   const today=new Date(), m1ago=new Date(today);
   m1ago.setMonth(m1ago.getMonth()-1);
-  document.getElementById('rTo').value   = today.toISOString().split('T')[0];
-  document.getElementById('rFrom').value = m1ago.toISOString().split('T')[0];
+  document.getElementById('rTo').value   = toLocalISO(today);
+  document.getElementById('rFrom').value = toLocalISO(m1ago);
 
   // Auto-expire (admin only — write permission required)
   if (currentUser) {
     const toExpire = cachedItems.filter(i=>i.status==='Ongoing'&&daysLeft(i.expiryDate)<0);
     if (toExpire.length) {
+      let expireOk = 0, expireFail = 0;
       for (const item of toExpire) {
-        await db.from('lost_found_items').update({status:'Expired',expire_date:item.expiryDate}).eq('id',item.id);
+        const { error: expErr } = await db.from('lost_found_items').update({status:'Expired',expire_date:item.expiryDate}).eq('id',item.id);
+        if (expErr) expireFail++; else expireOk++;
       }
-      toast(`${toExpire.length} item otomatis di-expire`);
+      if (expireFail) toast(`${expireOk} item di-expire, ${expireFail} gagal diproses`,'error');
+      else toast(`${toExpire.length} item otomatis di-expire`);
       await loadAll(); renderDashboard();
     }
   }
