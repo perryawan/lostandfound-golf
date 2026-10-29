@@ -922,9 +922,14 @@ body.is-public .admin-action{display:none!important}
         <label>Masa simpan (bulan) <span class="req">*</span></label>
         <input type="number" id="editTypeMonths" min="1" max="60"/>
       </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Pindahkan ke kategori <span style="font-weight:400;color:var(--text3)">(opsional)</span></label>
+        <select id="editTypeMoveTo" onchange="document.getElementById('editTypeMoveErr').style.display='none'"></select>
+      </div>
     </div>
+    <div id="editTypeMoveErr" style="display:none;font-size:12px;background:var(--red-lt);color:var(--red-tx);border-radius:var(--radius);padding:8px 10px;margin:8px 0 0"></div>
     <div style="font-size:11px;color:var(--text3);margin:6px 0 14px">
-      <i class="ti ti-info-circle"></i> Barang yang sudah ada tetap memakai nama jenis lama, tidak ikut berubah.
+      <i class="ti ti-info-circle"></i> Barang yang sudah ada tetap memakai nama jenis dan kategori lama, tidak ikut berubah. Pemindahan kategori hanya berlaku untuk barang baru; masa simpan jenis ini ikut dipindahkan.
     </div>
     <div class="action-row">
       <button class="btn" onclick="closeModal('editTypeModal')">Batal</button>
@@ -2641,6 +2646,12 @@ function openEditType(cat, type) {
   editTypeTarget = { cat, oldName: type };
   document.getElementById('editTypeName').value = type;
   document.getElementById('editTypeMonths').value = getTypeMonths(cat, type) || '';
+  const moveSel = document.getElementById('editTypeMoveTo');
+  moveSel.innerHTML = '<option value="">— Tetap di kategori ini —</option>';
+  Object.keys(ITEM_TYPES).filter(c => c !== cat).forEach(c => {
+    const o = document.createElement('option'); o.value = c; o.textContent = c; moveSel.appendChild(o);
+  });
+  document.getElementById('editTypeMoveErr').style.display = 'none';
   document.getElementById('editTypeModal').classList.add('open');
 }
 
@@ -2653,6 +2664,40 @@ function confirmEditType() {
   if (!months || months < 1) { toast('Isi masa simpan (bulan)','error'); return; }
   if (newName !== oldName && ITEM_TYPES[cat].includes(newName)) {
     toast('Nama jenis barang sudah dipakai','error'); return;
+  }
+
+  // ── PINDAH ke kategori lain (opsional) ──
+  const moveTo = document.getElementById('editTypeMoveTo').value;
+  if (moveTo && moveTo !== cat) {
+    const errBox = document.getElementById('editTypeMoveErr');
+    if (!ITEM_TYPES[moveTo]) {
+      errBox.textContent = 'Kategori tujuan tidak ditemukan. Tutup jendela ini lalu coba lagi.';
+      errBox.style.display = 'block'; return;
+    }
+    if (ITEM_TYPES[moveTo].some(t => t.toLowerCase() === newName.toLowerCase())) {
+      // Tolak dengan jelas — TIDAK digabung diam-diam
+      errBox.textContent = 'Tidak bisa dipindahkan: kategori "' + moveTo + '" sudah punya jenis bernama "' + newName + '". Ganti nama jenis ini di kolom atas, atau hapus/ubah jenis yang lama di "' + moveTo + '" dulu.';
+      errBox.style.display = 'block'; return;
+    }
+    // Jenis bawaan: catat sebagai 'dihapus' dari kategori asal supaya tidak muncul lagi saat reload
+    const movedDefaultKey = findDefaultKeyForCurrentName(cat, oldName);
+    if (movedDefaultKey !== null) {
+      if (!(TYPE_REMOVED[cat]||[]).includes(movedDefaultKey)) TYPE_REMOVED[cat] = [...(TYPE_REMOVED[cat]||[]), movedDefaultKey];
+      if (TYPE_RENAMES[cat]) delete TYPE_RENAMES[cat][movedDefaultKey];
+    }
+    ITEM_TYPES[cat] = ITEM_TYPES[cat].filter(t => t !== oldName);
+    if (TYPE_MONTHS[cat]) delete TYPE_MONTHS[cat][oldName];
+    // Masuk ke kategori tujuan sebagai jenis biasa; masa simpan = milik jenis itu sendiri
+    ITEM_TYPES[moveTo] = [...ITEM_TYPES[moveTo].filter(t => t !== 'Lainnya...'), newName, 'Lainnya...'];
+    TYPE_MONTHS[moveTo] = { ...(TYPE_MONTHS[moveTo]||{}), [newName]: months };
+    saveCustomTypes();
+    closeModal('editTypeModal');
+    editTypeTarget = null;
+    toast('Jenis "' + newName + '" dipindahkan dari ' + cat + ' ke ' + moveTo + ' ✓');
+    renderSettings();
+    refreshCategoryDropdowns();
+    populateSearchTypes();
+    return;
   }
 
   const defaultKey = findDefaultKeyForCurrentName(cat, oldName);
