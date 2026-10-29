@@ -1100,6 +1100,9 @@ let TYPE_RENAMES = {};
 // Tracking rename untuk MAIN CATEGORY default (bawaan sistem) — pola sama seperti TYPE_RENAMES, satu level di atas
 // Struktur: { 'Elektronik & Berharga': 'Elektronik & Berharga Premium' }  -> key = nama kategori default asli
 let CATEGORY_RENAMES = {};
+// Item BAWAAN yang dihapus admin — dicatat supaya tidak muncul lagi saat reload (ADDITIVE)
+let CATEGORY_REMOVED = []; // ['Alas Kaki'] -> nama kategori default asli (raw)
+let TYPE_REMOVED = {};     // { 'Pakaian': ['Celana'] } -> key = nama kategori saat ini, isi = nama jenis default asli (raw)
 let editTypeTarget = null; // { cat, oldName } — dipakai openEditType/confirmEditType
 
 // ══════════════════════════════════════════════
@@ -1107,6 +1110,7 @@ let editTypeTarget = null; // { cat, oldName } — dipakai openEditType/confirmE
 // ══════════════════════════════════════════════
 let DEPARTMENTS = [];
 let DEPARTMENT_RENAMES = {}; // { 'Housekeeping': 'Housekeeping Department' } -> key = nama default asli
+let DEPARTMENT_REMOVED = []; // nama department default asli (raw) yang dihapus admin
 let editDeptTarget = null;   // nama department yang sedang diedit
 
 // ══════════════════════════════════════════════
@@ -1185,12 +1189,15 @@ function applyCustomTypesFromObject(saved) {
   TYPE_MONTHS = {};
   TYPE_RENAMES = {};
   CATEGORY_RENAMES = saved.__categoryRenames || {};
+  CATEGORY_REMOVED = saved.__categoryRemoved || [];
+  TYPE_REMOVED = {};
   // Merge defaults (dengan rename kategori diterapkan) + custom
-  const effectiveDefaultCatNames = Object.keys(DEFAULT_ITEM_TYPES).map(c => CATEGORY_RENAMES[c] || c);
-  const savedCatKeys = Object.keys(saved).filter(k => k !== '__categoryRenames');
+  const effectiveDefaultCatNames = Object.keys(DEFAULT_ITEM_TYPES).filter(c => !CATEGORY_REMOVED.includes(c)).map(c => CATEGORY_RENAMES[c] || c);
+  const savedCatKeys = Object.keys(saved).filter(k => k !== '__categoryRenames' && k !== '__categoryRemoved');
   const allCats = new Set([...effectiveDefaultCatNames, ...savedCatKeys]);
   allCats.forEach(cat => {
     if (saved[cat]?.typeRenames) TYPE_RENAMES[cat] = saved[cat].typeRenames;
+    if (saved[cat]?.typeRemoved) TYPE_REMOVED[cat] = saved[cat].typeRemoved;
     const customs  = saved[cat]?.types || [];
     // Remove 'Lainnya...' from defaults (applying any rename), append customs, add 'Lainnya...' at end
     const base = getEffectiveDefaultTypes(cat);
@@ -1218,10 +1225,12 @@ function buildCustomTypesObject() {
       types: customs,
       months: STORAGE_MONTHS[cat],
       typeMonths: TYPE_MONTHS[cat] || {},
-      typeRenames: TYPE_RENAMES[cat] || {}
+      typeRenames: TYPE_RENAMES[cat] || {},
+      typeRemoved: TYPE_REMOVED[cat] || []
     };
   });
   data.__categoryRenames = CATEGORY_RENAMES;
+  data.__categoryRemoved = CATEGORY_REMOVED;
   return data;
 }
 
@@ -1237,6 +1246,8 @@ async function loadCustomTypes() {
     TYPE_MONTHS = {};
     TYPE_RENAMES = {};
     CATEGORY_RENAMES = {};
+    CATEGORY_REMOVED = [];
+    TYPE_REMOVED = {};
   }
 
   // 2) Sinkron dengan Supabase — ini yang membuat semua device (desktop & mobile) sama
@@ -1278,16 +1289,18 @@ async function saveCustomTypes() {
 //  masa simpan). Reuse tabel app_settings yang sudah ada, key berbeda.
 // ══════════════════════════════════════════════
 function getEffectiveDefaultDepartments() {
-  return DEFAULT_DEPARTMENTS.map(d => DEPARTMENT_RENAMES[d] || d);
+  return DEFAULT_DEPARTMENTS.filter(d => !DEPARTMENT_REMOVED.includes(d)).map(d => DEPARTMENT_RENAMES[d] || d);
 }
 function findRawDefaultDeptKey(currentName) {
   for (const raw of DEFAULT_DEPARTMENTS) {
+    if (DEPARTMENT_REMOVED.includes(raw)) continue;
     if ((DEPARTMENT_RENAMES[raw] || raw) === currentName) return raw;
   }
   return null;
 }
 function applyDepartmentsFromObject(saved) {
   DEPARTMENT_RENAMES = saved.renames || {};
+  DEPARTMENT_REMOVED = saved.removed || [];
   const base = getEffectiveDefaultDepartments();
   const customs = saved.customs || [];
   DEPARTMENTS = [...new Set([...base, ...customs])];
@@ -1299,13 +1312,14 @@ function readLocalDepartments() {
 function buildDepartmentsObject() {
   const base = getEffectiveDefaultDepartments();
   const customs = DEPARTMENTS.filter(d => !base.includes(d));
-  return { customs, renames: DEPARTMENT_RENAMES };
+  return { customs, renames: DEPARTMENT_RENAMES, removed: DEPARTMENT_REMOVED };
 }
 async function loadDepartments() {
   try {
     applyDepartmentsFromObject(readLocalDepartments());
   } catch(e) {
     DEPARTMENTS = [...DEFAULT_DEPARTMENTS];
+    DEPARTMENT_REMOVED = [];
     DEPARTMENT_RENAMES = {};
   }
   try {
@@ -1345,7 +1359,7 @@ function renderDepartmentSettings() {
       return `<div style="display:inline-flex;align-items:center;gap:4px;background:${isDefault?'var(--surface2)':'var(--green-lt)'};border:1px solid ${isDefault?'var(--border)':'#9FE1CB'};border-radius:20px;padding:3px 10px;font-size:12px">
         <span>${esc(d)}</span>
         <button onclick="openEditDepartment('${jsq(d)}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0 0 0 2px" title="Edit"><i class="ti ti-pencil"></i></button>
-        ${!isDefault?`<button onclick="deleteDepartment('${jsq(d)}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 2px" title="Hapus">×</button>`:''}
+        <button onclick="deleteDepartment('${jsq(d)}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 2px" title="Hapus">×</button>
       </div>`;
     }).join('') + `</div>`;
 }
@@ -1398,7 +1412,15 @@ function deleteDepartment(name) {
     toast(`Tidak bisa dihapus — ${usedCount} barang masih memakai departemen "${name}". Hapus/pindahkan barang itu dulu.`, 'error');
     return;
   }
+  if (DEPARTMENTS.length <= 1) { toast('Tidak bisa dihapus — minimal harus ada satu departemen','error'); return; }
   if (!confirm(`Hapus departemen "${name}"?`)) return;
+  // Departemen bawaan: catat sebagai 'dihapus' supaya tidak muncul lagi saat reload
+  const rawDeptKey = findRawDefaultDeptKey(name);
+  if (rawDeptKey) {
+    if (!DEPARTMENT_REMOVED.includes(rawDeptKey)) DEPARTMENT_REMOVED = [...DEPARTMENT_REMOVED, rawDeptKey];
+    const { [rawDeptKey]: _dropped, ...restRenames } = DEPARTMENT_RENAMES;
+    DEPARTMENT_RENAMES = restRenames;
+  }
   DEPARTMENTS = DEPARTMENTS.filter(d => d !== name);
   saveDepartments();
   toast(`Departemen "${name}" dihapus ✓`);
@@ -1409,7 +1431,7 @@ function deleteDepartment(name) {
 // Isi ulang 3 dropdown Departemen (Tambah Barang, Edit Barang, Filter Pencarian)
 // dari data DEPARTMENTS — reuse pola persis refreshCategoryDropdowns()
 function refreshDeptDropdowns() {
-  ['fDept','eDept','sDept','exDept'].forEach(id=>{
+  ['fDept','eDept','sDept','exDept','ongoingDept'].forEach(id=>{
     const sel = document.getElementById(id);
     if (!sel) return;
     const cur = sel.value;
@@ -1430,6 +1452,7 @@ function refreshDeptDropdowns() {
 // Cari nama kategori default ASLI (raw) yang saat ini tampil sebagai `currentName` (null jika bukan kategori default/bawaan)
 function findRawDefaultCategoryKey(currentName) {
   for (const raw of Object.keys(DEFAULT_ITEM_TYPES)) {
+    if (CATEGORY_REMOVED.includes(raw)) continue;
     if ((CATEGORY_RENAMES[raw] || raw) === currentName) return raw;
   }
   return null;
@@ -1437,7 +1460,8 @@ function findRawDefaultCategoryKey(currentName) {
 // Nama-nama default sebuah kategori, dengan rename (jika ada) sudah diterapkan
 function getEffectiveDefaultTypes(cat) {
   const rawCatKey = findRawDefaultCategoryKey(cat);
-  const defaults = (rawCatKey ? DEFAULT_ITEM_TYPES[rawCatKey] : (DEFAULT_ITEM_TYPES[cat] || [])).filter(t => t !== 'Lainnya...');
+  const removedTypes = TYPE_REMOVED[cat] || [];
+  const defaults = (rawCatKey ? DEFAULT_ITEM_TYPES[rawCatKey] : (CATEGORY_REMOVED.includes(cat) ? [] : (DEFAULT_ITEM_TYPES[cat] || []))).filter(t => t !== 'Lainnya...' && !removedTypes.includes(t));
   const renames  = TYPE_RENAMES[cat] || {};
   return defaults.map(t => renames[t] || t);
 }
@@ -1445,7 +1469,8 @@ function getEffectiveDefaultTypes(cat) {
 function findDefaultKeyForCurrentName(cat, currentName) {
   const renames = TYPE_RENAMES[cat] || {};
   const rawCatKey = findRawDefaultCategoryKey(cat);
-  const rawDefaults = (rawCatKey ? DEFAULT_ITEM_TYPES[rawCatKey] : (DEFAULT_ITEM_TYPES[cat] || [])).filter(t => t !== 'Lainnya...');
+  const removedTypes = TYPE_REMOVED[cat] || [];
+  const rawDefaults = (rawCatKey ? DEFAULT_ITEM_TYPES[rawCatKey] : (CATEGORY_REMOVED.includes(cat) ? [] : (DEFAULT_ITEM_TYPES[cat] || []))).filter(t => t !== 'Lainnya...' && !removedTypes.includes(t));
   for (const raw of rawDefaults) {
     if ((renames[raw] || raw) === currentName) return raw;
   }
@@ -2554,7 +2579,7 @@ function renderSettings() {
             <span>${esc(t)}</span>
             <small style="opacity:.6;font-size:10px">(${tmLabel})</small>
             <button onclick="openEditType('${jsq(cat)}','${jsq(t)}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0 0 0 2px" title="Edit"><i class="ti ti-pencil"></i></button>
-            ${!isDefault?`<button onclick="removeType('${jsq(cat)}','${jsq(t)}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 2px" title="Hapus">×</button>`:''}
+            <button onclick="removeType('${jsq(cat)}','${jsq(t)}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 2px" title="Hapus">×</button>
           </div>`;
         }).join('')}
         <button class="btn btn-sm" onclick="openAddType('${jsq(cat)}')" style="border-style:dashed">
@@ -2595,6 +2620,12 @@ function removeType(cat, type) {
     return;
   }
   if (!confirm(`Hapus jenis "${type}" dari ${cat}?`)) return;
+  // Jenis bawaan: catat sebagai 'dihapus' supaya tidak muncul lagi saat reload
+  const defaultKey = findDefaultKeyForCurrentName(cat, type);
+  if (defaultKey !== null) {
+    if (!(TYPE_REMOVED[cat]||[]).includes(defaultKey)) TYPE_REMOVED[cat] = [...(TYPE_REMOVED[cat]||[]), defaultKey];
+    if (TYPE_RENAMES[cat]) delete TYPE_RENAMES[cat][defaultKey];
+  }
   ITEM_TYPES[cat] = ITEM_TYPES[cat].filter(t=>t!==type);
   if (TYPE_MONTHS[cat]) delete TYPE_MONTHS[cat][type];
   saveCustomTypes();
@@ -2688,6 +2719,7 @@ function confirmEditCategory() {
     delete STORAGE_MONTHS[oldName];
     if (TYPE_MONTHS[oldName]) { TYPE_MONTHS[newName] = TYPE_MONTHS[oldName]; delete TYPE_MONTHS[oldName]; }
     if (TYPE_RENAMES[oldName]) { TYPE_RENAMES[newName] = TYPE_RENAMES[oldName]; delete TYPE_RENAMES[oldName]; }
+    if (TYPE_REMOVED[oldName]) { TYPE_REMOVED[newName] = TYPE_REMOVED[oldName]; delete TYPE_REMOVED[oldName]; }
   }
   saveCustomTypes();
   closeModal('editCategoryModal');
@@ -2702,13 +2734,19 @@ function deleteCategory(cat) {
     toast(`Tidak bisa dihapus — ${usedCount} barang masih memakai kategori "${cat}". Hapus/pindahkan barang itu dulu.`, 'error');
     return;
   }
+  if (Object.keys(ITEM_TYPES).length <= 1) { toast('Tidak bisa dihapus — minimal harus ada satu kategori','error'); return; }
   if (!confirm(`Hapus kategori "${cat}"? Semua jenis barang di dalamnya ikut terhapus.`)) return;
   const rawCatKey = findRawDefaultCategoryKey(cat);
-  if (rawCatKey) delete CATEGORY_RENAMES[rawCatKey];
+  if (rawCatKey) {
+    delete CATEGORY_RENAMES[rawCatKey];
+    // Kategori bawaan: catat sebagai 'dihapus' supaya tidak muncul lagi saat reload
+    if (!CATEGORY_REMOVED.includes(rawCatKey)) CATEGORY_REMOVED = [...CATEGORY_REMOVED, rawCatKey];
+  }
   delete ITEM_TYPES[cat];
   delete STORAGE_MONTHS[cat];
   delete TYPE_MONTHS[cat];
   delete TYPE_RENAMES[cat];
+  delete TYPE_REMOVED[cat];
   saveCustomTypes();
   toast(`Kategori "${cat}" dihapus ✓`);
   renderSettings();
